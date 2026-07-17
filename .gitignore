@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+start-log.txt
+diagnose-output.txt
+git-output.txt
