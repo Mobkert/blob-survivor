@@ -411,6 +411,8 @@ export class UIScene extends Phaser.Scene {
     this.continueSelected = new Set();
     this.continuePickCards = null;
     this.continuePickWeapon = null;
+    this.continuePickLevel = 1;
+    this.continuePickXp = 0;
     this.continueConfirmBtn = null;
     this.continueConfirmLabel = null;
     this.continueCountText = null;
@@ -508,6 +510,8 @@ export class UIScene extends Phaser.Scene {
       this.pendingContinue = {
         weapon: data.continueWeapon || null,
         cardIds: Array.isArray(data.continueCards) ? data.continueCards : [],
+        level: data.playerLevel || 1,
+        xp: data.playerXp || 0,
       };
       this.continueBtn.setVisible(true);
       this.continueText.setVisible(true);
@@ -560,19 +564,21 @@ export class UIScene extends Phaser.Scene {
       .filter(Boolean);
 
     if (cards.length === 0) {
-      this.startVolcanicContinue(pending.weapon, []);
+      this.startVolcanicContinue(pending.weapon, [], pending.level, pending.xp);
       return;
     }
 
-    this.showContinueCardPick(cards, pending.weapon);
+    this.showContinueCardPick(cards, pending.weapon, pending.level, pending.xp);
   }
 
-  showContinueCardPick(cards, weapon) {
+  showContinueCardPick(cards, weapon, level, xp) {
     this.hideCardPick();
     this.continuePickMode = true;
     this.continueSelected = new Set();
     this.continuePickCards = cards;
     this.continuePickWeapon = weapon;
+    this.continuePickLevel = level || 1;
+    this.continuePickXp = xp || 0;
     this.continuePickNeeded = Math.min(CONTINUE_PICK_COUNT, cards.length);
 
     this.cardPickGroup.setVisible(true);
@@ -597,7 +603,7 @@ export class UIScene extends Phaser.Scene {
       .text(
         width / 2,
         92,
-        `Choose cards from Plains to bring into Volcanic Ridge.\nYou keep ${weaponName} until wave 5, then you can change.`,
+        `Keep level ${this.continuePickLevel}. Damage resets to 1, then your 4 cards apply.\nYou keep ${weaponName} until wave 5, then you can change.`,
         {
           fontFamily: 'Arial',
           fontSize: '16px',
@@ -746,11 +752,13 @@ export class UIScene extends Phaser.Scene {
       .sort((a, b) => a - b)
       .map((i) => this.continuePickCards[i].id);
     const weapon = this.continuePickWeapon;
+    const level = this.continuePickLevel;
+    const xp = this.continuePickXp;
     this.hideCardPick();
-    this.startVolcanicContinue(weapon, cardIds);
+    this.startVolcanicContinue(weapon, cardIds, level, xp);
   }
 
-  startVolcanicContinue(weapon, cardIds) {
+  startVolcanicContinue(weapon, cardIds, level = 1, xp = 0) {
     this.pendingContinue = null;
     this.continuePickMode = false;
     this.hideCardPick();
@@ -762,8 +770,11 @@ export class UIScene extends Phaser.Scene {
       launchScenes: ['UIScene'],
       levelId: 'volcanic',
       continueCarry: {
-        weapon: weapon ? { ...weapon } : null,
+        continued: true,
+        weapon: weapon ? { ...weapon, damage: 1 } : null,
         cardIds: [...cardIds],
+        level: Math.max(1, Number(level) || 1),
+        xp: Math.max(0, Number(xp) || 0),
       },
     });
   }

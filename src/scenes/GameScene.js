@@ -154,7 +154,7 @@ export class GameScene extends Phaser.Scene {
     const carry = this.continueCarry;
     this.continueCarry = null;
 
-    if (carry?.weapon || (carry?.cardIds && carry.cardIds.length > 0)) {
+    if (carry?.continued) {
       this.applyContinueLoadout(carry);
       this.waveManager.startWave(1);
       this.gameState = 'playing';
@@ -167,8 +167,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   applyContinueLoadout(carry) {
+    // Keep Plains XP level; start from base damage (1) before the 4 cards apply.
+    this.playerState.level = Math.max(1, Number(carry.level) || 1);
+    this.playerState.xp = Math.max(0, Number(carry.xp) || 0);
+    this.playerState.damageMultiplier = 1;
+    this.playerState.rangedDamageBonus = 0;
+    this.playerState.meleeDamageBonus = 0;
+    this.playerState.bigDamageBonus = 0;
+    this.playerState.fortuneFlat = 0;
+    this.playerState.fortuneMod = 1;
+
     if (carry.weapon) {
-      this.playerState.weapon = { ...carry.weapon };
+      this.playerState.weapon = { ...carry.weapon, damage: 1 };
     }
 
     const ids = Array.isArray(carry.cardIds) ? carry.cardIds : [];
@@ -177,16 +187,12 @@ export class GameScene extends Phaser.Scene {
       if (!card?.apply) return;
       card.apply(this.playerState);
       this.playerState.runPowerups.push(id);
-      if (card.id === 'maxHp' || card.id === 'turtle' || card.id === 'bulwark' || card.id === 'tank') {
-        // HP granted after sync below
-      }
       if (card.category === 'attack') {
         this.player.attackCooldownEnd = 0;
       }
     });
 
     this.player.syncStats();
-    this.player.hp = this.player.maxHp;
     this.player.maxHp = getMaxHp(this.playerState);
     this.player.hp = this.player.maxHp;
   }
@@ -245,6 +251,7 @@ export class GameScene extends Phaser.Scene {
           levelId: this.levelId,
           levelName: this.levelData?.name || 'Level',
           playerLevel: this.playerState.level,
+          playerXp: this.playerState.xp,
           goldReward,
           diamondReward,
           canContinue: this.levelId === 'plains',

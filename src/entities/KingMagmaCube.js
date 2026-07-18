@@ -452,7 +452,12 @@ export class KingMagmaCube extends Enemy {
   }
 
   takeDamage(damage, ignoreInstantKill = false) {
-    const killed = super.takeDamage(damage, ignoreInstantKill);
+    // Outside stun, the King Magma Cube takes 3x less damage.
+    let incoming = damage;
+    if (this.phase !== 'stun') {
+      incoming = damage / 3;
+    }
+    const killed = super.takeDamage(incoming, ignoreInstantKill);
     this.scene.events.emit('boss-hp', this);
     return killed;
   }

@@ -16,6 +16,16 @@ export class MagmaCube extends Enemy {
     this.attackTimers = [];
     this.heldFx = [];
     this.busy = false;
+
+    if (scene.levelId === 'volcanic') {
+      this.maxHp = Math.floor(this.maxHp * 2);
+      this.hp = this.maxHp;
+      this.attackDamage = Math.floor(this.attackDamage * 1.5);
+      this.contactDamage = Math.floor(this.contactDamage * 1.5);
+      if (this.enemyData.burnDamage) {
+        this.enemyData.burnDamage = Math.floor(this.enemyData.burnDamage * 1.5);
+      }
+    }
   }
 
   get fx() {
