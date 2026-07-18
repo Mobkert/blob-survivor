@@ -585,6 +585,8 @@ export class GameScene extends Phaser.Scene {
 
     if (this.isMultiplayer && this.mpRole === 'host') {
       if (this.guestInput) applyGuestInputOnHost(this, this.guestInput);
+      // Ally never runs full update (host drives movement) — still expire shield duration.
+      this.ally?.tickShield?.(time);
       if (this.allyCombat && this.gameState === 'playing') this.allyCombat.update();
       if (time - this.lastSnapshotAt >= 80) {
         this.lastSnapshotAt = time;

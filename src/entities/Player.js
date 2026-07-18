@@ -191,16 +191,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocity(vx, vy);
     this.updateWeaponVisuals(pointer, time);
 
-    // Guest shield state is host-authoritative (via snapshots).
+    // Guest shield visuals are snapshot-driven; host still ticks ally shield below via tickShield.
     const guestMp = this.scene.isMultiplayer && this.scene.mpRole === 'guest';
-    if (!guestMp && this.shieldActive && time >= this.shieldEndTime) {
+    if (!guestMp) this.tickShield(time);
+    else {
+      this.shieldSprite.setPosition(this.x, this.y);
+      this.shieldSprite.setVisible(this.shieldActive);
+    }
+  }
+
+  /** Expire shield when duration ends (host ally must call this — ally skips full update). */
+  tickShield(time) {
+    if (this.shieldActive && time >= this.shieldEndTime) {
       this.shieldActive = false;
       this.shieldSprite.setVisible(false);
       if (this.playerState.aegisProtocol) {
         this.playerState.mirrorWardCharges = (this.playerState.mirrorWardCharges || 0) + 1;
       }
     }
-
     this.shieldSprite.setPosition(this.x, this.y);
     this.shieldSprite.setVisible(this.shieldActive);
   }
