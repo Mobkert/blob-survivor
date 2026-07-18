@@ -8,6 +8,7 @@ export class FxPool {
   constructor(scene, { circleCount = 96 } = {}) {
     this.scene = scene;
     this.free = [];
+    this.all = [];
     this.particles = [];
     this.gfxLife = [];
     this.gfx = scene.add.graphics().setDepth(14);
@@ -18,6 +19,7 @@ export class FxPool {
         .setDepth(12)
         .setVisible(false)
         .setActive(false);
+      this.all.push(c);
       this.free.push(c);
     }
 
@@ -168,11 +170,33 @@ export class FxPool {
 
   destroy() {
     this.scene.events.off('update', this.update, this);
-    this.particles.forEach((p) => this.release(p.obj));
-    this.particles.length = 0;
-    this.gfxLife.length = 0;
-    this.free.forEach((c) => c.destroy());
+    this.clearAll();
+    this.all.forEach((c) => c.destroy());
+    this.all.length = 0;
     this.free.length = 0;
     this.gfx?.destroy();
+    this.gfx = null;
+  }
+
+  /** Force-release every pooled circle and wipe beams/particles (call on player death). */
+  clearAll() {
+    this.particles.length = 0;
+    this.gfxLife.length = 0;
+    this.gfx?.clear();
+    this.free.length = 0;
+    this.all.forEach((c) => {
+      if (!c || !c.scene) return;
+      try {
+        this.scene.tweens.killTweensOf(c);
+      } catch {
+        /* ignore */
+      }
+      c.setVisible(false);
+      c.setActive(false);
+      c.setAlpha(1);
+      c.setScale(1);
+      c.setStrokeStyle();
+      this.free.push(c);
+    });
   }
 }

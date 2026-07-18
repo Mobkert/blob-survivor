@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { xpToNextLevel } from '../data/constants.js';
+import { xpToNextLevel, GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
 import { getPowerup } from '../data/powerups.js';
 import { loadMeta } from '../data/meta.js';
 import { isPremiumShopCard } from '../data/shop.js';
@@ -18,6 +18,8 @@ export class UIScene extends Phaser.Scene {
     this.pendingContinue = null;
     this.continueSelected = new Set();
     this.continuePickMode = false;
+    this.damageGlowIntensity = 0;
+    this.damageGlowGfx = this.add.graphics().setScrollFactor(0).setDepth(90);
 
     this.cardPickGroup = this.add.container(0, 0).setScrollFactor(0).setDepth(500).setVisible(false);
     this.cardPickPanels = [];
@@ -157,6 +159,11 @@ export class UIScene extends Phaser.Scene {
     this.menuBtnLabel = menuText;
 
     this.gameScene.events.on('hud-update', () => this.refreshHud());
+    this.gameScene.events.on('player-damaged', (amount) => this.onPlayerDamaged(amount));
+    this.gameScene.events.on('clear-damage-glow', () => {
+      this.damageGlowIntensity = 0;
+      this.damageGlowGfx?.clear();
+    });
     this.gameScene.events.on('game-over', (data) => this.showGameOver(data));
     this.gameScene.events.on('level-complete', (data) => this.showVictory(data));
     this.gameScene.events.on('coins-collected', (amount) => {
@@ -826,5 +833,56 @@ export class UIScene extends Phaser.Scene {
     if (this.gameScene?.gameState === 'victory') return;
     if (this.gameScene?.gameState === 'paused') return;
     this.refreshHud();
+    this.tickDamageGlow();
+  }
+
+  onPlayerDamaged(amount) {
+    const maxHp = this.gameScene?.player?.maxHp || 100;
+    const boost = Phaser.Math.Clamp(Number(amount) / (maxHp * 0.32), 0.1, 0.75);
+    this.damageGlowIntensity = Math.min(1, (this.damageGlowIntensity || 0) + boost);
+    this.drawDamageGlow();
+  }
+
+  tickDamageGlow() {
+    if (!this.damageGlowIntensity || this.damageGlowIntensity <= 0) {
+      this.damageGlowGfx?.clear();
+      return;
+    }
+    this.damageGlowIntensity = Math.max(0, this.damageGlowIntensity - 0.014);
+    this.drawDamageGlow();
+  }
+
+  drawDamageGlow() {
+    const g = this.damageGlowGfx;
+    if (!g) return;
+    g.clear();
+    const t = this.damageGlowIntensity || 0;
+    if (t <= 0.01) return;
+
+    const w = GAME_WIDTH;
+    const h = GAME_HEIGHT;
+    const edge = 0.14 + t * 0.1;
+    const a = t * 0.72;
+
+    // Soft full-screen wash — brighter with heavier hits
+    g.fillStyle(0xff2200, a * 0.22);
+    g.fillRect(0, 0, w, h);
+
+    // Edge vignette bands
+    g.fillStyle(0xff1500, a);
+    g.fillRect(0, 0, w, h * edge);
+    g.fillRect(0, h * (1 - edge), w, h * edge);
+    g.fillRect(0, 0, w * edge, h);
+    g.fillRect(w * (1 - edge), 0, w * edge, h);
+
+    // Inner rim for stronger hits
+    if (t > 0.45) {
+      const a2 = (t - 0.45) * 0.9;
+      g.fillStyle(0xff6600, a2);
+      g.fillRect(0, 0, w, h * 0.06);
+      g.fillRect(0, h * 0.94, w, h * 0.06);
+      g.fillRect(0, 0, w * 0.05, h);
+      g.fillRect(w * 0.95, 0, w * 0.05, h);
+    }
   }
 }

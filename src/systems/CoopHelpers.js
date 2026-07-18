@@ -303,7 +303,7 @@ export function syncAllyWeaponVisual(player, weapon, aimX, aimY) {
     player.weaponSprite.setTexture(textureKey);
   }
   player.aimAngle = Phaser.Math.Angle.Between(player.x, player.y, aimX, aimY);
-  const holdOffset = weapon.type === 'melee' ? 22 : 18;
+  const holdOffset = weapon.id === 'spear' ? 34 : weapon.type === 'melee' ? 22 : 18;
   player.weaponSprite.setPosition(
     player.x + Math.cos(player.aimAngle) * holdOffset,
     player.y + Math.sin(player.aimAngle) * holdOffset,

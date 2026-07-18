@@ -497,27 +497,72 @@ export class GameScene extends Phaser.Scene {
   }
 
   handlePlayerDeath() {
-    this.lives -= 1;
-    this.events.emit('hud-update', { lives: this.lives });
-
-    if (this.lives <= 0) {
-      this.gameState = 'game_over';
-      this.isUserPaused = false;
-      this.physics.pause();
-      this.events.emit('game-over', {
-        wave: this.waveManager.currentWave,
-        level: this.playerState.level,
-      });
+    if (this.gameState === 'game_over' || this.gameState === 'respawn' || this.gameState === 'victory') {
       return;
     }
 
-    this.gameState = 'respawn';
-    this.player.respawn(0, 0);
-    if (this.ally) this.ally.respawn(40, 0);
-    this.combatSystem.clearOrbs();
-    this.waveManager.respawnWave();
-    this.gameState = 'playing';
-    this.events.emit('hud-update');
+    // Lock state immediately so in-flight attack callbacks stop dealing damage.
+    const finalLife = this.lives <= 1;
+    this.gameState = finalLife ? 'game_over' : 'respawn';
+
+    this.lives -= 1;
+    this.events.emit('hud-update', { lives: this.lives });
+
+    // Cleanup + UI on the next tick — never destroy enemies/timers mid-callback.
+    this.time.delayedCall(0, () => {
+      this.clearDeathVfx();
+
+      if (finalLife || this.lives <= 0) {
+        this.gameState = 'game_over';
+        this.isUserPaused = false;
+        try {
+          this.physics.pause();
+        } catch {
+          /* ignore */
+        }
+        this.events.emit('game-over', {
+          wave: this.waveManager.currentWave,
+          level: this.playerState.level,
+        });
+        return;
+      }
+
+      this.player.respawn(0, 0);
+      if (this.ally) this.ally.respawn(40, 0);
+      this.combatSystem.clearOrbs();
+      this.waveManager.respawnWave();
+      this.gameState = 'playing';
+      this.events.emit('hud-update');
+    });
+  }
+
+  clearDeathVfx() {
+    try {
+      this.waveManager?.enemies?.getChildren()?.forEach((enemy) => {
+        enemy.clearAttacks?.();
+        enemy.clearTelegraph?.();
+        enemy.telegraph?.clear?.();
+      });
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.combatSystem?.clearCombatEffects?.();
+      this.allyCombat?.clearCombatEffects?.();
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.fx?.clearAll?.();
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.tweens.killAll();
+    } catch {
+      /* ignore */
+    }
+    this.events.emit('clear-damage-glow');
   }
 
   togglePause() {

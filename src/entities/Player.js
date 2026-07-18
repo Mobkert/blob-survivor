@@ -122,7 +122,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.weaponSprite.setTexture(textureKey);
     }
 
-    const holdOffset = weapon.type === 'melee' ? 22 : 18;
+    const holdOffset = weapon.id === 'spear' ? 34 : weapon.type === 'melee' ? 22 : 18;
     this.weaponSprite.setPosition(
       this.x + Math.cos(this.aimAngle) * holdOffset,
       this.y + Math.sin(this.aimAngle) * holdOffset,
@@ -152,13 +152,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.hp <= 0 || this.shieldActive) return;
     const scaled = Math.max(0, this.burnDamage * (this.playerState.damageTakenMultiplier || 1));
     this.hp = Math.max(0, this.hp - scaled);
+    if (scaled > 0) this.scene.events.emit('player-damaged', scaled);
     this.setTint(0xff5522);
     this.scene.time.delayedCall(80, () => {
       if (this.active && time < this.burnEndTime) this.setTint(0xff7744);
       else if (this.active) this.clearTint();
     });
     if (this.hp <= 0) {
-      this.scene.events.emit('player-died');
+      this.queueDeath();
     }
   }
 
@@ -271,6 +272,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   takeDamage(amount, time) {
     if (this.hp <= 0) return false;
+    if (this.scene.gameState === 'game_over' || this.scene.gameState === 'respawn') return false;
     if (this.shieldActive) return false;
     if (time < this.invulnerableUntil) return false;
 
@@ -296,6 +298,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     const scaled = Math.max(0, amount * this.playerState.damageTakenMultiplier);
+    if (scaled > 0) {
+      this.scene.events.emit('player-damaged', scaled);
+    }
 
     if (this.scene.isMultiplayer && typeof this.scene.sharedHp === 'number') {
       this.scene.sharedHp = Math.max(0, this.scene.sharedHp - scaled);
@@ -315,7 +320,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.setTint(0xff6666);
       this.scene.time.delayedCall(120, () => this.clearTint());
       if (this.scene.sharedHp <= 0) {
-        this.scene.events.emit('player-died');
+        this.queueDeath();
       }
       return true;
     }
@@ -336,7 +341,25 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.invulnerableUntil = time + 500;
     this.setTint(0xff6666);
     this.scene.time.delayedCall(120, () => this.clearTint());
+
+    if (this.hp <= 0) {
+      this.queueDeath();
+    }
     return true;
+  }
+
+  /**
+   * Never run death/VFX cleanup inside an enemy attack timer or physics callback —
+   * that freezes Phaser (timer removed / enemy destroyed mid-callback).
+   */
+  queueDeath() {
+    if (this._deathQueued) return;
+    this._deathQueued = true;
+    this.scene.time.delayedCall(0, () => {
+      this._deathQueued = false;
+      if (this.scene.gameState === 'game_over' || this.scene.gameState === 'respawn') return;
+      this.scene.events.emit('player-died');
+    });
   }
 
   heal(amount) {

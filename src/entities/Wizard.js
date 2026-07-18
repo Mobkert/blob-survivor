@@ -39,24 +39,32 @@ export class Wizard extends Enemy {
   }
 
   clearAttacks() {
-    this.attackTimers.forEach((t) => {
+    const timers = this.attackTimers.splice(0, this.attackTimers.length);
+    timers.forEach((t) => {
       try {
         t.remove(false);
       } catch {
         /* already removed */
       }
     });
-    this.attackTimers.length = 0;
 
-    this.heldFx.forEach((obj) => {
-      this.fx?.release(obj);
+    const held = this.heldFx.splice(0, this.heldFx.length);
+    held.forEach((obj) => {
+      try {
+        this.fx?.release(obj);
+      } catch {
+        /* ignore */
+      }
     });
-    this.heldFx.length = 0;
     this.busy = false;
   }
 
   isAttackAlive() {
-    return this.active && !this.isDying;
+    return (
+      this.active &&
+      !this.isDying &&
+      (this.scene.gameState === 'playing' || this.scene.gameState === 'wave_pause')
+    );
   }
 
   update(time, player) {
@@ -177,10 +185,14 @@ export class Wizard extends Enemy {
           }
 
           if (player.active && Phaser.Math.Distance.Between(x, y, player.x, player.y) < 24) {
-            player.takeDamage(this.attackDamage, this.scene.time.now);
-            this.fx.flash(player.x, player.y, 10, 0xffffff, 160, 28);
-            this.fx.release(bolt);
-            this.untrackHeld(bolt);
+            if (this.scene.gameState === 'playing' || this.scene.gameState === 'wave_pause') {
+              player.takeDamage(this.attackDamage, this.scene.time.now);
+            }
+            if (bolt?.active) {
+              this.fx?.flash(player.x, player.y, 10, 0xffffff, 160, 28);
+              this.fx?.release(bolt);
+              this.untrackHeld(bolt);
+            }
             tick.remove(false);
             return;
           }
@@ -241,6 +253,12 @@ export class Wizard extends Enemy {
           if (ticks >= 16) {
             tick.remove(false);
             this.fx.flash(tx, ty, 16, 0xaa44ff, 240, 70);
+            if (player.active) {
+              const d = Phaser.Math.Distance.Between(tx, ty, player.x, player.y);
+              if (d < pullR * 0.85) {
+                player.takeDamage(this.attackDamage * 2.5, this.scene.time.now);
+              }
+            }
             this.fx.release(core);
             this.fx.release(ring);
             this.untrackHeld(core);

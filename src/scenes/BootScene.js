@@ -6,6 +6,16 @@ export class BootScene extends Phaser.Scene {
     super('BootScene');
   }
 
+  preload() {
+    // Art weapons (transparent PNGs) — baked to in-game sizes in create().
+    this.load.image('art_weapon_shortbow', 'images/weapon_shortbow_art.png');
+    this.load.image('art_weapon_revolver', 'images/weapon_revolver_art.png');
+    this.load.image('art_weapon_crossbow', 'images/weapon_crossbow_art.png');
+    this.load.image('art_weapon_sword', 'images/weapon_sword_art.png');
+    this.load.image('art_weapon_axe', 'images/weapon_axe_art.png');
+    this.load.image('art_weapon_spear', 'images/weapon_spear_art.png');
+  }
+
   create() {
     this.generateTextures();
     this.scene.start('LoadingScene', {
@@ -164,15 +174,44 @@ export class BootScene extends Phaser.Scene {
   }
 
   createWeaponTextures() {
-    this.drawShortbow();
-    this.drawRevolver();
-    this.drawCrossbow();
-    this.drawSword();
-    this.drawAxe();
-    this.drawSpear();
+    // Match previous procedural texture sizes; melee arts are tip-up so rotate 90° to aim +X.
+    if (!this.bakeWeaponArt('art_weapon_shortbow', 'weapon_shortbow', 32, 32, 0)) this.drawShortbow();
+    if (!this.bakeWeaponArt('art_weapon_revolver', 'weapon_revolver', 36, 36, 0)) this.drawRevolver();
+    if (!this.bakeWeaponArt('art_weapon_crossbow', 'weapon_crossbow', 34, 34, 0)) this.drawCrossbow();
+    if (!this.bakeWeaponArt('art_weapon_sword', 'weapon_sword', 28, 32, 90)) this.drawSword();
+    if (!this.bakeWeaponArt('art_weapon_axe', 'weapon_axe', 28, 32, 90)) this.drawAxe();
+    if (!this.bakeWeaponArt('art_weapon_spear', 'weapon_spear', 64, 22, 90)) this.drawSpear();
     this.drawBomb();
     this.drawGrenade();
     this.drawShockwave();
+  }
+
+  /**
+   * Scale art into a fixed-size canvas texture (same size as old procedural weapons).
+   * @returns {boolean} true if baked from art
+   */
+  bakeWeaponArt(srcKey, destKey, w, h, rotateDeg = 0) {
+    if (!this.textures.exists(srcKey)) return false;
+    if (this.textures.exists(destKey)) this.textures.remove(destKey);
+
+    const src = this.textures.get(srcKey).getSourceImage();
+    const canvasTex = this.textures.createCanvas(destKey, w, h);
+    const ctx = canvasTex.getContext();
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    if (rotateDeg) ctx.rotate((rotateDeg * Math.PI) / 180);
+
+    const rad = (rotateDeg * Math.PI) / 180;
+    const bw = Math.abs(src.width * Math.cos(rad)) + Math.abs(src.height * Math.sin(rad));
+    const bh = Math.abs(src.width * Math.sin(rad)) + Math.abs(src.height * Math.cos(rad));
+    const scale = Math.min(w / Math.max(1, bw), h / Math.max(1, bh));
+    const dw = src.width * scale;
+    const dh = src.height * scale;
+    ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
+    ctx.restore();
+    canvasTex.refresh();
+    return true;
   }
 
   drawShortbow() {

@@ -129,10 +129,7 @@ export class CombatSystem {
         size: 3,
       });
     }
-
-    if (this.player.isDead()) {
-      this.scene.events.emit('player-died');
-    }
+    // Death is queued inside takeDamage (deferred) — do not emit here.
   }
 
   /** Triggered when the player successfully activates RMB shield. */
@@ -1967,5 +1964,17 @@ export class CombatSystem {
     this.xpOrbs.clear(true, true);
     this.coinOrbs.clear(true, true);
     this.cardPickups.clear(true, true);
+  }
+
+  /** Wipe projectiles, crow aura, and orbs — used on death / game over. */
+  clearCombatEffects() {
+    this.destroyCrowAura();
+    this.projectiles.clear(true, true);
+    this.clearOrbs();
+    this.activeToxicClouds = 0;
+    this.activePhantoms = 0;
+    this.activePhoenixPlumes = 0;
+    this.activeScorchedPools = 0;
+    this.fortuneBusy = false;
   }
 }
