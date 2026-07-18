@@ -35,6 +35,13 @@ export class WaveManager {
     this.clearEnemies();
     this.activeBoss = null;
 
+    if (this.scene.playerState?.bubbleWrap) {
+      this.scene.playerState.bubbleWrapReady = true;
+    }
+    if (this.scene.allyState?.bubbleWrap) {
+      this.scene.allyState.bubbleWrapReady = true;
+    }
+
     if (isBossWave(waveNumber)) {
       let boss;
       if (this.levelId === 'volcanic') {

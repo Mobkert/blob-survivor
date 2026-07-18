@@ -274,6 +274,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       return false;
     }
 
+    if (this.playerState.bubbleWrap && this.playerState.bubbleWrapReady) {
+      this.playerState.bubbleWrapReady = false;
+      this.invulnerableUntil = time + 350;
+      this.setTint(0xa8e6ff);
+      this.scene.fx?.flash(this.x, this.y, 16, 0xa8e6ff, 220, 48);
+      this.scene.time.delayedCall(160, () => this.clearTint());
+      return false;
+    }
+
     if (this.playerState.rampageCore) {
       this.playerState.rampageStacks = 0;
     }

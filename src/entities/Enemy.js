@@ -71,6 +71,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
+    if (time < (this.sandStunUntil || 0)) {
+      this.setVelocity(0, 0);
+      this.setTint(0xd4b483);
+      this.updateHpBar();
+      return;
+    }
     const speed = this.chaseSpeed * this.slowMultiplier;
     this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
 

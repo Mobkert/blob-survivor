@@ -145,6 +145,22 @@ export class BootScene extends Phaser.Scene {
     g.fillCircle(12, 12, 6);
     g.generateTexture('player', 32, 32);
     g.destroy();
+
+    this.createCrowTexture();
+  }
+
+  createCrowTexture() {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    // Simple side-view crow silhouette
+    g.fillStyle(0x0d0d12, 1);
+    g.fillEllipse(14, 16, 16, 10);
+    g.fillTriangle(22, 16, 30, 14, 22, 18);
+    g.fillTriangle(8, 14, 2, 10, 10, 16);
+    g.fillTriangle(8, 18, 2, 22, 10, 16);
+    g.fillStyle(0x1a1a22, 1);
+    g.fillCircle(18, 13, 2);
+    g.generateTexture('fx_crow', 32, 32);
+    g.destroy();
   }
 
   createWeaponTextures() {

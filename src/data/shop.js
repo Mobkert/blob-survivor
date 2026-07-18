@@ -1182,6 +1182,114 @@ export const ShopItems = {
     },
   },
 
+  // --- budget unique cards (under 400 coins) ---
+  pocketSand: {
+    id: 'pocketSand',
+    name: 'Pocket Sand',
+    category: 'passive',
+    color: 0xd4b483,
+    price: 220,
+    description: 'Hits have a 30% chance to stun an enemy briefly. Tiny attack tax.',
+    eligible: () => true,
+    apply: (state) => {
+      state.pocketSand = true;
+      addCooldownTax(state, 0, 30);
+    },
+  },
+  splinter: {
+    id: 'splinter',
+    name: 'Splinter',
+    category: 'projectile',
+    color: 0xc8e0ff,
+    price: 270,
+    description: 'Kills fling a seeking shard at a nearby foe. +40ms attack CD.',
+    eligible: () => true,
+    apply: (state) => {
+      state.splinter = true;
+      addCooldownTax(state, 0, 40);
+    },
+  },
+  bubbleWrap: {
+    id: 'bubbleWrap',
+    name: 'Bubble Wrap',
+    category: 'passive',
+    color: 0xa8e6ff,
+    price: 250,
+    description: 'Once per wave, the first hit that would hurt you pops harmlessly.',
+    eligible: () => true,
+    apply: (state) => {
+      state.bubbleWrap = true;
+      state.bubbleWrapReady = true;
+      addCooldownTax(state, 500, 0);
+    },
+  },
+  lootPinata: {
+    id: 'lootPinata',
+    name: 'Loot Piñata',
+    category: 'passive',
+    color: 0xffcc66,
+    price: 290,
+    description: 'Kills have a 25% chance to burst bonus coins. +1.5s shield CD.',
+    eligible: () => true,
+    apply: (state) => {
+      state.lootPinata = true;
+      addCooldownTax(state, 1500, 20);
+    },
+  },
+  shieldBash: {
+    id: 'shieldBash',
+    name: 'Shield Bash',
+    category: 'shield',
+    color: 0x88aadd,
+    price: 310,
+    description: 'Raising shield knocks back and chips nearby enemies. +1s shield CD.',
+    eligible: () => true,
+    apply: (state) => {
+      state.shieldBash = true;
+      addCooldownTax(state, 1000, 20);
+    },
+  },
+  xpSpark: {
+    id: 'xpSpark',
+    name: 'XP Spark',
+    category: 'passive',
+    color: 0x66ffaa,
+    price: 240,
+    description: 'Picking up XP zaps the nearest enemy. Mild shield tax.',
+    eligible: () => true,
+    apply: (state) => {
+      state.xpSpark = true;
+      addCooldownTax(state, 800, 0);
+    },
+  },
+  overclock: {
+    id: 'overclock',
+    name: 'Overclock',
+    category: 'passive',
+    color: 0xff66aa,
+    price: 330,
+    description: 'Every 6th hit deals double damage. +50ms attack CD.',
+    eligible: () => true,
+    apply: (state) => {
+      state.overclock = true;
+      state.overclockHits = 0;
+      addCooldownTax(state, 0, 50);
+    },
+  },
+  crowPeck: {
+    id: 'crowPeck',
+    name: 'Crow Peck',
+    category: 'passive',
+    color: 0x334455,
+    price: 350,
+    description: 'Black crow aura: pecks nearest foe for 3 dmg every 1.2s. +40ms attack CD.',
+    eligible: () => true,
+    apply: (state) => {
+      state.crowPeck = true;
+      addCooldownTax(state, 0, 40);
+    },
+  },
+
   // --- boss drop (never sold in shop) ---
   tank: {
     id: 'tank',
@@ -1324,7 +1432,15 @@ export function getShopOffers() {
     meta.shopOfferIds.length !== SHOP_OFFER_COUNT;
 
   if (needsRefresh) {
-    const picked = shuffle(available).slice(0, SHOP_OFFER_COUNT);
+    // Prefer at least one affordable unique (<400) when any remain unlocked.
+    const cheap = shuffle(available.filter((item) => Number(item.price) > 0 && Number(item.price) < 400));
+    const rest = shuffle(available.filter((item) => !(Number(item.price) > 0 && Number(item.price) < 400)));
+    const picked = [];
+    if (cheap.length > 0) picked.push(cheap[0]);
+    const pool = shuffle([...cheap.slice(picked.length ? 1 : 0), ...rest]);
+    while (picked.length < SHOP_OFFER_COUNT && pool.length > 0) {
+      picked.push(pool.shift());
+    }
     meta.shopOfferIds = emptyOfferSlots().map((_, i) => picked[i]?.id ?? null);
     meta.shopOfferUntil = now + SHOP_ROTATION_MS;
     saveMeta(meta);

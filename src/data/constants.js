@@ -118,6 +118,17 @@ export function createPlayerState() {
     obsidianSkin: false,
     magmaPulse: false,
     cinderRing: false,
+    // Budget unique shop cards (<400)
+    pocketSand: false,
+    splinter: false,
+    bubbleWrap: false,
+    bubbleWrapReady: false,
+    lootPinata: false,
+    shieldBash: false,
+    xpSpark: false,
+    overclock: false,
+    overclockHits: 0,
+    crowPeck: false,
     /** Powerup card ids picked this run (for Plains → Volcanic continue). */
     runPowerups: [],
   };

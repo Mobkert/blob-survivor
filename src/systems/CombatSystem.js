@@ -32,6 +32,7 @@ export class CombatSystem {
     this.lastOrbitalStrike = 0;
     this.lastMagmaPulse = 0;
     this.activeScorchedPools = 0;
+    this.lastCrowPeck = 0;
     this.isAllyCombat = !!options.shareWith;
 
     this.projectiles = scene.add.group();
@@ -191,6 +192,24 @@ export class CombatSystem {
     if (effects.includes('voidWalker') || this.playerState.voidWalker) {
       this.voidWalkerBlink();
     }
+
+    if (this.playerState.shieldBash) {
+      this.doShieldBash(px, py);
+    }
+  }
+
+  doShieldBash(px, py) {
+    const radius = 95;
+    this.scene.fx?.flash(px, py, 14, 0x88aadd, 180, 50);
+    this.waveManager.enemies.getChildren().forEach((enemy) => {
+      if (!enemy.active || enemy.isDying) return;
+      const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
+      if (dist > radius + (enemy.enemyData?.radius || 14)) return;
+      const ang = Phaser.Math.Angle.Between(px, py, enemy.x, enemy.y);
+      enemy.x += Math.cos(ang) * 42;
+      enemy.y += Math.sin(ang) * 42;
+      this.hitEnemy(enemy, 12, { fromCloud: true });
+    });
   }
 
   voidWalkerBlink() {
@@ -342,6 +361,14 @@ export class CombatSystem {
 
     const flat = this.playerState.fortuneFlat || 0;
     let damage = baseDamage * getDamageMultiplier(this.playerState) + flat;
+    if (this.playerState.overclock && !options.fromCloud) {
+      this.playerState.overclockHits = (this.playerState.overclockHits || 0) + 1;
+      if (this.playerState.overclockHits >= 6) {
+        this.playerState.overclockHits = 0;
+        damage *= 2;
+        this.scene.fx?.flash(enemy.x, enemy.y, 12, 0xff66aa, 160, 30);
+      }
+    }
     if (this.playerState.bloodPact && !options.fromCloud) {
       damage *= 1.45;
     }
@@ -372,6 +399,17 @@ export class CombatSystem {
     }
 
     this.applyStatusEffects(enemy);
+    if (this.playerState.pocketSand && !options.fromCloud && Math.random() < 0.3) {
+      enemy.sandStunUntil = this.scene.time.now + 700;
+      enemy.applySlow?.(this.scene.time.now, 700, 0.2);
+      this.scene.fx?.burst(enemy.x, enemy.y, {
+        count: 4,
+        color: 0xd4b483,
+        speed: 55,
+        life: 180,
+        size: 2.5,
+      });
+    }
     const killed = enemy.takeDamage(damage);
 
     if (this.playerState.hexMark && !killed) {
@@ -546,6 +584,23 @@ export class CombatSystem {
     }
     if (this.playerState.phoenixPlume) {
       this.spawnPhoenixPlume(enemy.x, enemy.y);
+    }
+
+    if (this.playerState.lootPinata && Math.random() < 0.25) {
+      const bonus = 2 + Math.floor(Math.random() * 3);
+      const coin = new CoinOrb(this.scene, enemy.x + (Math.random() - 0.5) * 24, enemy.y - 6, bonus);
+      this.coinOrbs.add(coin);
+      this.scene.fx?.burst(enemy.x, enemy.y, {
+        count: 5,
+        color: 0xffcc66,
+        speed: 80,
+        life: 220,
+        size: 3,
+      });
+    }
+
+    if (this.playerState.splinter) {
+      this.fireSplinterShard(enemy.x, enemy.y);
     }
 
     if (this.playerState.scorchedGround) {
@@ -827,8 +882,45 @@ export class CombatSystem {
     if (this.playerState.scavenger) {
       this.player.heal(2);
     }
+    if (this.playerState.xpSpark) {
+      this.zapNearestFromXp(orb.x, orb.y);
+    }
     this.scene.events.emit('xp-collected', orb.value);
     orb.destroy();
+  }
+
+  zapNearestFromXp(x, y) {
+    let best = null;
+    let bestDist = 220;
+    this.waveManager.enemies.getChildren().forEach((enemy) => {
+      if (!enemy.active || enemy.isDying) return;
+      const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = enemy;
+      }
+    });
+    if (!best) return;
+    this.scene.fx?.bolt(x, y, best.x, best.y, 0x66ffaa, 100);
+    this.hitEnemy(best, 8, { fromCloud: true });
+  }
+
+  fireSplinterShard(x, y) {
+    let best = null;
+    let bestDist = 320;
+    this.waveManager.enemies.getChildren().forEach((enemy) => {
+      if (!enemy.active || enemy.isDying) return;
+      const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = enemy;
+      }
+    });
+    if (!best) return;
+    const angle = Phaser.Math.Angle.Between(x, y, best.x, best.y);
+    const proj = new Projectile(this.scene, x, y, angle, 480, 8, 0, this.playerState);
+    proj.setTint(0xc8e0ff);
+    this.projectiles.add(proj);
   }
 
   collectCoin(orb) {
@@ -1651,6 +1743,94 @@ export class CombatSystem {
       this.lastMagmaPulse = now;
       this.fireMagmaPulse();
     }
+
+    if (this.playerState.crowPeck && now - this.lastCrowPeck > 1200) {
+      this.lastCrowPeck = now;
+      this.doCrowPeck();
+    }
+
+    this.updateCrowAura(now);
+  }
+
+  ensureCrowAura() {
+    if (this.crowAura) return;
+    const scene = this.scene;
+    const px = this.player.x;
+    const py = this.player.y;
+    this.crowAura = scene.add.circle(px, py, 52, 0x050508, 0.42).setDepth(3);
+    this.crowAura.setStrokeStyle(3, 0x1a1a28, 0.75);
+    this.crowAuraRing = scene.add.circle(px, py, 38, 0x101018, 0.22).setDepth(3);
+    this.crowSprites = [];
+    const count = 4;
+    for (let i = 0; i < count; i++) {
+      const sprite = scene.textures.exists('fx_crow')
+        ? scene.add.image(px, py, 'fx_crow').setDepth(12).setScale(0.85)
+        : scene.add.circle(px, py, 5, 0x111118, 0.95).setDepth(12);
+      this.crowSprites.push({
+        sprite,
+        angle: (Math.PI * 2 * i) / count,
+        bob: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  destroyCrowAura() {
+    this.crowAura?.destroy();
+    this.crowAura = null;
+    this.crowAuraRing?.destroy();
+    this.crowAuraRing = null;
+    (this.crowSprites || []).forEach((c) => c.sprite?.destroy());
+    this.crowSprites = null;
+  }
+
+  updateCrowAura(now) {
+    if (!this.playerState.crowPeck || !this.player?.active) {
+      this.destroyCrowAura();
+      return;
+    }
+    this.ensureCrowAura();
+    const px = this.player.x;
+    const py = this.player.y;
+    this.crowAura.setPosition(px, py);
+    this.crowAuraRing.setPosition(px, py);
+    const pulse = 52 + Math.sin(now / 280) * 3;
+    this.crowAura.setRadius(pulse);
+    this.crowAuraRing.setRadius(pulse * 0.72);
+    const orbit = 44;
+    this.crowSprites.forEach((c) => {
+      c.angle += 0.045;
+      c.bob += 0.08;
+      const a = c.angle;
+      const bobY = Math.sin(c.bob) * 5;
+      c.sprite.setPosition(px + Math.cos(a) * orbit, py + Math.sin(a) * orbit * 0.72 + bobY - 6);
+      if (c.sprite.setFlipX) c.sprite.setFlipX(Math.cos(a) > 0);
+      if (c.sprite.setRotation) c.sprite.setRotation(Math.sin(a) * 0.25);
+    });
+  }
+
+  doCrowPeck() {
+    let best = null;
+    let bestDist = 200;
+    this.waveManager.enemies.getChildren().forEach((enemy) => {
+      if (!enemy.active || enemy.isDying) return;
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = enemy;
+      }
+    });
+    if (!best) return;
+    // Peck flies out from a random crow if present
+    let fromX = this.player.x;
+    let fromY = this.player.y - 18;
+    if (this.crowSprites?.length) {
+      const crow = this.crowSprites[Math.floor(Math.random() * this.crowSprites.length)];
+      fromX = crow.sprite.x;
+      fromY = crow.sprite.y;
+    }
+    this.scene.fx?.bolt(fromX, fromY, best.x, best.y, 0x222233, 90);
+    this.scene.fx?.burst(best.x, best.y, { count: 3, color: 0x222230, speed: 35, life: 140, size: 2 });
+    this.hitEnemy(best, 3, { fromCloud: true });
   }
 
   spawnScorchedGround(x, y) {
