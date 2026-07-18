@@ -191,7 +191,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocity(vx, vy);
     this.updateWeaponVisuals(pointer, time);
 
-    if (this.shieldActive && time >= this.shieldEndTime) {
+    // Guest shield state is host-authoritative (via snapshots).
+    const guestMp = this.scene.isMultiplayer && this.scene.mpRole === 'guest';
+    if (!guestMp && this.shieldActive && time >= this.shieldEndTime) {
       this.shieldActive = false;
       this.shieldSprite.setVisible(false);
       if (this.playerState.aegisProtocol) {

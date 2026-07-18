@@ -858,9 +858,13 @@ export class CombatSystem {
     const time = this.scene.time.now;
     if (!this.player.canAttack(time)) return;
 
+    // Prefer the pointer passed in (guest net input uses a fake pointer).
+    const aimPointer = pointer || this.scene.input.activePointer;
+    this._lastAimPointer = aimPointer;
+
     const fire = () => {
-      // Re-read aim when the shot actually fires (after Fortune delay).
-      const aim = this.player.getAimPoint(this.scene.input.activePointer);
+      const aimSrc = this._lastAimPointer || this.scene.input.activePointer;
+      const aim = this.player.getAimPoint(aimSrc);
       const angle = Phaser.Math.Angle.Between(
         this.player.x,
         this.player.y,
@@ -1024,7 +1028,8 @@ export class CombatSystem {
 
     if (this.playerState.doubleTap) {
       this.scene.time.delayedCall(120, () => {
-        const aim = this.player.getAimPoint(this.scene.input.activePointer);
+        const aimSrc = this._lastAimPointer || this.scene.input.activePointer;
+        const aim = this.player.getAimPoint(aimSrc);
         const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, aim.x, aim.y);
         const proj = new Projectile(
           this.scene,

@@ -18,6 +18,7 @@ import { Music } from '../systems/MusicManager.js';
 import { getLevel } from '../data/levels.js';
 import { addCoins, addDiamonds, markLevelComplete } from '../data/meta.js';
 import { getPowerup } from '../data/powerups.js';
+import { getWeapon } from '../data/weapons.js';
 import { clearActiveNetplay } from '../systems/NetplayManager.js';
 import {
   initMultiplayerFlags,
@@ -27,6 +28,7 @@ import {
   applyGuestInputOnHost,
   collectLocalInput,
   applySnapshotOnGuest,
+  syncAllyWeaponVisual,
 } from '../systems/CoopHelpers.js';
 
 export class GameScene extends Phaser.Scene {
@@ -65,6 +67,7 @@ export class GameScene extends Phaser.Scene {
   handleNetMessage(msg) {
     if (!msg?.type) return;
     if (this.mpRole === 'host' && msg.type === 'input') {
+      if (msg.q) this._guestQPending = true;
       this.guestInput = msg;
       return;
     }
@@ -77,8 +80,15 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     if (msg.type === 'weapon_chosen' && this.mpRole === 'host') {
-      if (msg.weapon) this.allyState.weapon = { ...msg.weapon };
-      this._guestWeaponResolve?.(msg.weapon);
+      const weapon =
+        (msg.weaponId && getWeapon(msg.weaponId)) ||
+        (msg.weapon?.id && getWeapon(msg.weapon.id)) ||
+        (msg.weapon ? { ...msg.weapon } : null);
+      if (weapon) {
+        this.allyState.weapon = weapon;
+        syncAllyWeaponVisual(this.ally, weapon, this.ally.x + 40, this.ally.y);
+      }
+      this._guestWeaponResolve?.(weapon);
       this._guestWeaponResolve = null;
       return;
     }
@@ -126,7 +136,12 @@ export class GameScene extends Phaser.Scene {
     this.isPausedForCard = true;
     await this.cardManager.show('weapon');
     this.isPausedForCard = false;
-    this.net?.send({ type: 'weapon_chosen', weapon: this.playerState.weapon });
+    const w = this.playerState.weapon;
+    this.net?.send({
+      type: 'weapon_chosen',
+      weaponId: w?.id || null,
+      weapon: w ? { id: w.id, name: w.name, type: w.type } : null,
+    });
     this.gameState = 'playing';
   }
 

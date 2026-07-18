@@ -2,17 +2,16 @@
  * Multiplayer helpers mixed into GameScene (keeps GameScene readable).
  */
 import Phaser from 'phaser';
-import { createPlayerState, getMaxHp, PLAYER_LIVES } from '../data/constants.js';
+import { createPlayerState, getMaxHp, getMoveSpeed } from '../data/constants.js';
+import { getWeapon } from '../data/weapons.js';
 import { Player } from '../entities/Player.js';
 import { CombatSystem } from './CombatSystem.js';
-import { getActiveNetplay, clearActiveNetplay } from './NetplayManager.js';
+import { getActiveNetplay } from './NetplayManager.js';
 import { Enemy } from '../entities/Enemy.js';
 import { Wizard, isWizardType } from '../entities/Wizard.js';
 import { MagmaCube, isMagmaType } from '../entities/MagmaCube.js';
 import { GoblinKing } from '../entities/GoblinKing.js';
 import { KingMagmaCube } from '../entities/KingMagmaCube.js';
-
-const SNAPSHOT_MS = 80;
 
 export function initMultiplayerFlags(scene, data) {
   scene.mpConfig = data.multiplayer || null;
@@ -25,7 +24,9 @@ export function initMultiplayerFlags(scene, data) {
   scene.guestInput = null;
   scene.lastSnapshotAt = 0;
   scene.guestEnemyMap = new Map();
+  scene.guestProjectileMap = new Map();
   scene._guestNetId = 1;
+  scene._guestQPending = false;
 }
 
 export function setupMultiplayerPlayers(scene) {
@@ -66,7 +67,7 @@ export function syncSharedLevelToAlly(scene) {
 
 export function buildSnapshot(scene) {
   const enemies = [];
-  scene.waveManager.enemies.getChildren().forEach((enemy, index) => {
+  scene.waveManager.enemies.getChildren().forEach((enemy) => {
     if (!enemy.active || enemy.isDying) return;
     if (enemy._netId == null) enemy._netId = scene._guestNetId++;
     enemies.push({
@@ -79,6 +80,23 @@ export function buildSnapshot(scene) {
     });
   });
 
+  const projectiles = [];
+  const pushProjs = (group) => {
+    if (!group) return;
+    group.getChildren().forEach((p) => {
+      if (!p.active) return;
+      if (p._netId == null) p._netId = scene._guestNetId++;
+      projectiles.push({
+        id: p._netId,
+        x: Math.round(p.x),
+        y: Math.round(p.y),
+        r: Math.round((p.rotation || 0) * 100) / 100,
+      });
+    });
+  };
+  pushProjs(scene.combatSystem?.projectiles);
+  pushProjs(scene.allyCombat?.projectiles);
+
   return {
     type: 'snapshot',
     hp: scene.sharedHp,
@@ -89,26 +107,31 @@ export function buildSnapshot(scene) {
     wave: scene.waveManager.currentWave,
     gameState: scene.gameState,
     host: {
-      x: scene.player.x,
-      y: scene.player.y,
+      x: Math.round(scene.player.x),
+      y: Math.round(scene.player.y),
       aimX: scene.player.aimX,
       aimY: scene.player.aimY,
       weapon: scene.playerState.weapon?.name || 'None',
+      weaponId: scene.playerState.weapon?.id || null,
+      shield: !!scene.player.shieldActive,
     },
     guest: {
-      x: scene.ally.x,
-      y: scene.ally.y,
+      x: Math.round(scene.ally.x),
+      y: Math.round(scene.ally.y),
       aimX: scene.ally.aimX,
       aimY: scene.ally.aimY,
       weapon: scene.allyState.weapon?.name || 'None',
+      weaponId: scene.allyState.weapon?.id || null,
+      shield: !!scene.ally.shieldActive,
     },
     enemies,
+    projectiles,
   };
 }
 
 export function applyGuestInputOnHost(scene, input) {
   if (!scene.ally || !input) return;
-  const speed = 220 * (scene.allyState.speedMultiplier || 1) * (1 + (scene.allyState.speedBonus || 0));
+  const speed = getMoveSpeed(scene.allyState, scene.time.now);
   let vx = 0;
   let vy = 0;
   if (input.up) vy -= 1;
@@ -123,40 +146,27 @@ export function applyGuestInputOnHost(scene, input) {
   }
   scene.ally.aimX = input.aimX;
   scene.ally.aimY = input.aimY;
-  scene.ally.aimAngle = Phaser.Math.Angle.Between(scene.ally.x, scene.ally.y, input.aimX, input.aimY);
-  if (scene.ally.weaponSprite && scene.allyState.weapon) {
-    const holdOffset = scene.allyState.weapon.type === 'melee' ? 22 : 18;
-    scene.ally.weaponSprite.setPosition(
-      scene.ally.x + Math.cos(scene.ally.aimAngle) * holdOffset,
-      scene.ally.y + Math.sin(scene.ally.aimAngle) * holdOffset,
-    );
-    scene.ally.weaponSprite.setRotation(scene.ally.aimAngle);
-    scene.ally.weaponSprite.setVisible(true);
-  }
+  syncAllyWeaponVisual(scene.ally, scene.allyState.weapon, input.aimX, input.aimY);
 
-  if (input.fire && scene.allyCombat) {
-    const fakePointer = {
-      worldX: input.aimX,
-      worldY: input.aimY,
-      x: input.aimX,
-      y: input.aimY,
-      positionToCamera: () => ({ x: input.aimX, y: input.aimY }),
-      leftButtonDown: () => true,
-      rightButtonDown: () => false,
-    };
-    if (scene.ally.canAttack(scene.time.now)) {
-      scene.allyCombat.performPrimaryAttack(fakePointer);
-    }
+  const fakePointer = {
+    worldX: input.aimX,
+    worldY: input.aimY,
+    x: input.aimX,
+    y: input.aimY,
+    positionToCamera: () => ({ x: input.aimX, y: input.aimY }),
+    leftButtonDown: () => !!input.fire,
+    rightButtonDown: () => !!input.shield,
+  };
+
+  if (input.fire && scene.allyCombat && scene.allyState.weapon) {
+    scene.allyCombat.performPrimaryAttack(fakePointer);
   }
   if (input.shield && scene.ally.activateShield(scene.time.now)) {
     scene.allyCombat?.onShieldActivate();
   }
-  if (input.q) {
-    scene.allyCombat?.useAttackPowerup({
-      worldX: input.aimX,
-      worldY: input.aimY,
-      positionToCamera: () => ({ x: input.aimX, y: input.aimY }),
-    });
+  if (input.q || scene._guestQPending) {
+    scene._guestQPending = false;
+    scene.allyCombat?.useAttackPowerup(fakePointer);
   }
 }
 
@@ -190,13 +200,37 @@ export function applySnapshotOnGuest(scene, snap) {
   }
   scene.syncSharedHpToPlayers();
 
-  // On guest: player = local guest, ally = remote host
-  scene.player.setPosition(snap.guest.x, snap.guest.y);
+  // Soft-correct guest body toward host authority (keeps WASD feeling responsive).
+  const gx = snap.guest.x;
+  const gy = snap.guest.y;
+  const dx = gx - scene.player.x;
+  const dy = gy - scene.player.y;
+  if (Math.hypot(dx, dy) > 48) {
+    scene.player.setPosition(gx, gy);
+  } else {
+    scene.player.setPosition(scene.player.x + dx * 0.35, scene.player.y + dy * 0.35);
+  }
   scene.ally.setPosition(snap.host.x, snap.host.y);
   scene.player.aimX = snap.guest.aimX;
   scene.player.aimY = snap.guest.aimY;
   scene.ally.aimX = snap.host.aimX;
   scene.ally.aimY = snap.host.aimY;
+
+  // Keep remote host weapon art in sync on the guest client.
+  if (snap.host.weaponId && scene.allyState) {
+    if (scene.allyState.weapon?.id !== snap.host.weaponId) {
+      const remoteWeapon = getWeapon(snap.host.weaponId);
+      if (remoteWeapon) scene.allyState.weapon = remoteWeapon;
+    }
+    syncAllyWeaponVisual(scene.ally, scene.allyState.weapon, snap.host.aimX, snap.host.aimY);
+  }
+
+  scene.player.shieldActive = !!snap.guest.shield;
+  scene.player.shieldSprite?.setVisible(scene.player.shieldActive);
+  scene.player.shieldSprite?.setPosition(scene.player.x, scene.player.y);
+  scene.ally.shieldActive = !!snap.host.shield;
+  scene.ally.shieldSprite?.setVisible(scene.ally.shieldActive);
+  scene.ally.shieldSprite?.setPosition(scene.ally.x, scene.ally.y);
 
   // Sync enemy visuals
   const seen = new Set();
@@ -219,7 +253,47 @@ export function applySnapshotOnGuest(scene, snap) {
     }
   });
 
+  // Sync projectiles (host + ally shots)
+  const seenP = new Set();
+  (snap.projectiles || []).forEach((p) => {
+    seenP.add(p.id);
+    let sprite = scene.guestProjectileMap.get(p.id);
+    if (!sprite || !sprite.active) {
+      sprite = scene.add.image(p.x, p.y, 'projectile').setDepth(8);
+      scene.guestProjectileMap.set(p.id, sprite);
+    }
+    sprite.setPosition(p.x, p.y);
+    sprite.setRotation(p.r || 0);
+    sprite.setVisible(true);
+  });
+  scene.guestProjectileMap.forEach((sprite, id) => {
+    if (!seenP.has(id)) {
+      sprite.destroy();
+      scene.guestProjectileMap.delete(id);
+    }
+  });
+
   scene.events.emit('hud-update', { wave: snap.wave });
+}
+
+/** Update held-weapon texture/pose for a co-op ally sprite. */
+export function syncAllyWeaponVisual(player, weapon, aimX, aimY) {
+  if (!player?.weaponSprite || !weapon) return;
+  const textureKey = `weapon_${weapon.id}`;
+  if (player.scene.textures.exists(textureKey) && player.weaponSprite.texture.key !== textureKey) {
+    player.weaponSprite.setTexture(textureKey);
+  }
+  player.aimAngle = Phaser.Math.Angle.Between(player.x, player.y, aimX, aimY);
+  const holdOffset = weapon.type === 'melee' ? 22 : 18;
+  player.weaponSprite.setPosition(
+    player.x + Math.cos(player.aimAngle) * holdOffset,
+    player.y + Math.sin(player.aimAngle) * holdOffset,
+  );
+  player.weaponSprite.setRotation(player.aimAngle);
+  player.weaponSprite.setVisible(true);
+  if (weapon.type === 'melee') player.weaponSprite.setOrigin(0.25, 0.5);
+  else if (weapon.type === 'ranged') player.weaponSprite.setOrigin(0.3, 0.5);
+  else player.weaponSprite.setOrigin(0.5, 0.5);
 }
 
 function spawnGuestEnemy(scene, e) {
