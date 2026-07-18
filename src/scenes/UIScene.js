@@ -55,6 +55,18 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
 
+    this.waveCompleteText = this.add
+      .text(640, 100, 'Wave Completed', {
+        fontFamily: 'Arial',
+        fontSize: '36px',
+        color: '#a8ff88',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(120)
+      .setAlpha(0);
+
     this.activeBoss = null;
 
     this.lifeIcons = [];
@@ -124,6 +136,27 @@ export class UIScene extends Phaser.Scene {
     });
     this.gameScene.events.on('game-paused', () => this.showPauseMenu());
     this.gameScene.events.on('game-unpaused', () => this.hidePauseMenu());
+    this.gameScene.events.on('wave-cleared', (wave) => this.showWaveCompleted(wave));
+  }
+
+  showWaveCompleted(wave) {
+    if (this.tweens) {
+      this.tweens.killTweensOf(this.waveCompleteText);
+    }
+    this.waveCompleteText.setText('Wave Completed');
+    this.waveCompleteText.setAlpha(1);
+    this.waveCompleteText.setScale(1);
+    this.waveCompleteText.y = 100;
+
+    this.tweens.add({
+      targets: this.waveCompleteText,
+      alpha: 0,
+      y: 70,
+      scale: 1.08,
+      duration: 1600,
+      ease: 'Sine.easeIn',
+      delay: 400,
+    });
   }
 
   createPauseButton() {
