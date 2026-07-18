@@ -20,6 +20,7 @@ export class LoadingScene extends Phaser.Scene {
     this.launchScenes = Array.isArray(data.launchScenes) ? data.launchScenes : [];
     this.levelId = data.levelId || 'plains';
     this.continueCarry = data.continueCarry || null;
+    this.multiplayer = data.multiplayer || null;
   }
 
   preload() {
@@ -87,6 +88,7 @@ export class LoadingScene extends Phaser.Scene {
     this.scene.start(this.nextScene, {
       levelId: this.levelId,
       continueCarry: this.continueCarry || null,
+      multiplayer: this.multiplayer || null,
     });
   }
 }

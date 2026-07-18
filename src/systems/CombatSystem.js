@@ -11,7 +11,11 @@ import { CardPickup } from '../entities/CardPickup.js';
 const MAX_EXPLOSION_DEPTH = 2;
 
 export class CombatSystem {
-  constructor(scene, player, waveManager, playerState) {
+  /**
+   * @param {object} [options]
+   * @param {CombatSystem} [options.shareWith] — ally combat reuses host orb groups
+   */
+  constructor(scene, player, waveManager, playerState, options = {}) {
     this.scene = scene;
     this.player = player;
     this.waveManager = waveManager;
@@ -27,11 +31,19 @@ export class CombatSystem {
     this.lastOrbitalStrike = 0;
     this.lastMagmaPulse = 0;
     this.activeScorchedPools = 0;
+    this.isAllyCombat = !!options.shareWith;
 
     this.projectiles = scene.add.group();
-    this.xpOrbs = scene.add.group();
-    this.coinOrbs = scene.add.group();
-    this.cardPickups = scene.add.group();
+
+    if (options.shareWith) {
+      this.xpOrbs = options.shareWith.xpOrbs;
+      this.coinOrbs = options.shareWith.coinOrbs;
+      this.cardPickups = options.shareWith.cardPickups;
+    } else {
+      this.xpOrbs = scene.add.group();
+      this.coinOrbs = scene.add.group();
+      this.cardPickups = scene.add.group();
+    }
 
     scene.physics.add.overlap(
       player,
@@ -131,8 +143,13 @@ export class CombatSystem {
       this.player.heal(this.playerState.shieldHeal);
     }
     if (this.playerState.shieldCoins > 0) {
-      addCoins(this.playerState.shieldCoins);
-      this.scene.events.emit('coins-collected', this.playerState.shieldCoins);
+      const coins = this.scene.isMultiplayer
+        ? Math.floor(this.playerState.shieldCoins / 2)
+        : this.playerState.shieldCoins;
+      if (coins > 0) {
+        addCoins(coins);
+        this.scene.events.emit('coins-collected', coins);
+      }
     }
 
     if (effects.includes('iceExplosion')) {
@@ -807,14 +824,15 @@ export class CombatSystem {
   }
 
   collectCoin(orb) {
-    addCoins(orb.value);
+    const value = this.scene.isMultiplayer ? Math.floor(orb.value / 2) : orb.value;
+    if (value > 0) addCoins(value);
     if (this.playerState.healOnCoin > 0) {
       this.player.heal(this.playerState.healOnCoin);
     }
     if (this.playerState.coinNova) {
       this.coinNovaBlast();
     }
-    this.scene.events.emit('coins-collected', orb.value);
+    this.scene.events.emit('coins-collected', value);
     orb.destroy();
   }
 

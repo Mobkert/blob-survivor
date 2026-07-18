@@ -7,6 +7,7 @@ import { DeckScene } from './scenes/DeckScene.js';
 import { DiamondsScene } from './scenes/DiamondsScene.js';
 import { SavesScene } from './scenes/SavesScene.js';
 import { LevelsScene } from './scenes/LevelsScene.js';
+import { MultiplayerLobbyScene } from './scenes/MultiplayerLobbyScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { UIScene } from './scenes/UIScene.js';
 import { GAME_WIDTH, GAME_HEIGHT } from './data/constants.js';
@@ -29,6 +30,7 @@ const config = {
     LoadingScene,
     MenuScene,
     LevelsScene,
+    MultiplayerLobbyScene,
     ShopScene,
     DeckScene,
     DiamondsScene,

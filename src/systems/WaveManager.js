@@ -74,8 +74,14 @@ export class WaveManager {
   }
 
   update(time) {
+    const targetFor = (enemy) => {
+      if (typeof this.scene.getCombatTarget === 'function') {
+        return this.scene.getCombatTarget(enemy);
+      }
+      return this.player;
+    };
     this.enemies.getChildren().forEach((enemy) => {
-      if (enemy.active) enemy.update(time, this.player);
+      if (enemy.active) enemy.update(time, targetFor(enemy));
     });
   }
 

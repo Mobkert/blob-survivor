@@ -133,11 +133,11 @@ export class LevelsScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.playBtn = this.add
-      .rectangle(GAME_WIDTH / 2, 620, 220, 52, 0x2a5a28)
+      .rectangle(GAME_WIDTH / 2, 600, 220, 52, 0x2a5a28)
       .setStrokeStyle(2, 0x66aa66)
       .setInteractive({ useHandCursor: true });
     this.playText = this.add
-      .text(GAME_WIDTH / 2, 620, 'Play', {
+      .text(GAME_WIDTH / 2, 600, 'Play', {
         fontFamily: 'Arial',
         fontSize: '24px',
         color: '#ffffff',
@@ -145,11 +145,43 @@ export class LevelsScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    this.multiplayerBtn = this.add
+      .rectangle(GAME_WIDTH / 2, 662, 220, 52, 0x2a4a8a)
+      .setStrokeStyle(2, 0x6688cc)
+      .setInteractive({ useHandCursor: true });
+    this.multiplayerText = this.add
+      .text(GAME_WIDTH / 2, 652, 'Multiplayer', {
+        fontFamily: 'Arial',
+        fontSize: '20px',
+        color: '#e0ecff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+    this.multiplayerSubtext = this.add
+      .text(GAME_WIDTH / 2, 674, 'Host / Join', {
+        fontFamily: 'Arial',
+        fontSize: '13px',
+        color: '#99bbdd',
+      })
+      .setOrigin(0.5);
+
+    this.multiplayerBtn.on('pointerover', () => this.multiplayerBtn.setFillStyle(0x3a5aaa));
+    this.multiplayerBtn.on('pointerout', () => this.multiplayerBtn.setFillStyle(0x2a4a8a));
+    this.multiplayerBtn.on('pointerdown', () => this.openMultiplayer());
+
     this.playBtn.on('pointerover', () => {
-      if (this.playBtn.input?.enabled) this.playBtn.setFillStyle(0x3a7a38);
+      if (this.playBtn.input?.enabled) {
+        const selected = LevelList.find((l) => l.id === this.selectedId);
+        const volcanic = selected?.id === 'volcanic';
+        this.playBtn.setFillStyle(volcanic ? 0x8a3820 : 0x3a7a38);
+      }
     });
     this.playBtn.on('pointerout', () => {
-      if (this.playBtn.input?.enabled) this.playBtn.setFillStyle(0x2a5a28);
+      if (this.playBtn.input?.enabled) {
+        const selected = LevelList.find((l) => l.id === this.selectedId);
+        const volcanic = selected?.id === 'volcanic';
+        this.playBtn.setFillStyle(volcanic ? 0x6a2818 : 0x2a5a28);
+      }
     });
     this.playBtn.on('pointerdown', () => this.startSelectedLevel());
   }
@@ -220,6 +252,12 @@ export class LevelsScene extends Phaser.Scene {
       launchScenes: ['UIScene'],
       levelId: selected.id,
     });
+  }
+
+  openMultiplayer() {
+    const selected = LevelList.find((l) => l.id === this.selectedId);
+    const levelId = isLevelUnlocked(selected, this.completedLevels) ? selected.id : 'plains';
+    this.scene.start('MultiplayerLobbyScene', { levelId });
   }
 
   createBackButton() {

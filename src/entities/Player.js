@@ -277,6 +277,30 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     const scaled = Math.max(0, amount * this.playerState.damageTakenMultiplier);
+
+    if (this.scene.isMultiplayer && typeof this.scene.sharedHp === 'number') {
+      this.scene.sharedHp = Math.max(0, this.scene.sharedHp - scaled);
+      this.scene.syncSharedHpToPlayers?.();
+      if (this.scene.sharedHp <= 0 && this.playerState.secondWind && !this.playerState.secondWindUsed) {
+        this.playerState.secondWindUsed = true;
+        this.scene.sharedHp = this.playerState.immortalCore
+          ? Math.max(1, Math.floor(this.scene.sharedMaxHp * 0.4))
+          : 1;
+        this.scene.syncSharedHpToPlayers?.();
+        this.invulnerableUntil = time + (this.playerState.immortalCore ? 2000 : 1500);
+        this.setTint(0xffffff);
+        this.scene.time.delayedCall(200, () => this.clearTint());
+        return true;
+      }
+      this.invulnerableUntil = time + 500;
+      this.setTint(0xff6666);
+      this.scene.time.delayedCall(120, () => this.clearTint());
+      if (this.scene.sharedHp <= 0) {
+        this.scene.events.emit('player-died');
+      }
+      return true;
+    }
+
     this.hp = Math.max(0, this.hp - scaled);
 
     if (this.hp <= 0 && this.playerState.secondWind && !this.playerState.secondWindUsed) {
@@ -298,16 +322,30 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   heal(amount) {
     if (amount <= 0) return;
+    if (this.scene.isMultiplayer && typeof this.scene.sharedHp === 'number') {
+      const max = this.scene.sharedMaxHp || this.maxHp;
+      this.scene.sharedHp = Math.min(max, Math.max(0, this.scene.sharedHp) + amount);
+      this.scene.syncSharedHpToPlayers?.();
+      return;
+    }
     this.hp = Math.min(this.maxHp, Math.max(0, this.hp) + amount);
   }
 
   isDead() {
+    if (this.scene.isMultiplayer && typeof this.scene.sharedHp === 'number') {
+      return this.scene.sharedHp <= 0;
+    }
     return this.hp <= 0;
   }
 
   respawn(x, y) {
     this.setPosition(x, y);
-    this.hp = this.maxHp;
+    if (this.scene.isMultiplayer && typeof this.scene.sharedMaxHp === 'number') {
+      this.scene.sharedHp = this.scene.sharedMaxHp;
+      this.scene.syncSharedHpToPlayers?.();
+    } else {
+      this.hp = this.maxHp;
+    }
     this.shieldActive = false;
     this.shieldSprite.setVisible(false);
     this.throwableInFlight = false;

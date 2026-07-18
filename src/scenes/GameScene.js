@@ -18,6 +18,16 @@ import { Music } from '../systems/MusicManager.js';
 import { getLevel } from '../data/levels.js';
 import { addCoins, addDiamonds, markLevelComplete } from '../data/meta.js';
 import { getPowerup } from '../data/powerups.js';
+import { clearActiveNetplay } from '../systems/NetplayManager.js';
+import {
+  initMultiplayerFlags,
+  setupMultiplayerPlayers,
+  syncSharedLevelToAlly,
+  buildSnapshot,
+  applyGuestInputOnHost,
+  collectLocalInput,
+  applySnapshotOnGuest,
+} from '../systems/CoopHelpers.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -28,6 +38,134 @@ export class GameScene extends Phaser.Scene {
     this.levelId = data.levelId || 'plains';
     this.levelData = getLevel(this.levelId);
     this.continueCarry = data.continueCarry || null;
+    initMultiplayerFlags(this, data);
+  }
+
+  syncSharedHpToPlayers() {
+    if (!this.isMultiplayer) return;
+    const hp = this.sharedHp;
+    const max = this.sharedMaxHp;
+    if (this.player) {
+      this.player.hp = hp;
+      this.player.maxHp = max;
+    }
+    if (this.ally) {
+      this.ally.hp = hp;
+      this.ally.maxHp = max;
+    }
+  }
+
+  getCombatTarget(fromEnemy) {
+    if (!this.isMultiplayer || !this.ally?.active) return this.player;
+    const d1 = Phaser.Math.Distance.Between(fromEnemy.x, fromEnemy.y, this.player.x, this.player.y);
+    const d2 = Phaser.Math.Distance.Between(fromEnemy.x, fromEnemy.y, this.ally.x, this.ally.y);
+    return d1 <= d2 ? this.player : this.ally;
+  }
+
+  handleNetMessage(msg) {
+    if (!msg?.type) return;
+    if (this.mpRole === 'host' && msg.type === 'input') {
+      this.guestInput = msg;
+      return;
+    }
+    if (this.mpRole === 'guest' && msg.type === 'snapshot') {
+      applySnapshotOnGuest(this, msg);
+      return;
+    }
+    if (msg.type === 'weapon_pick' && this.mpRole === 'guest') {
+      this.runGuestWeaponPick().catch((e) => console.error(e));
+      return;
+    }
+    if (msg.type === 'weapon_chosen' && this.mpRole === 'host') {
+      if (msg.weapon) this.allyState.weapon = { ...msg.weapon };
+      this._guestWeaponResolve?.(msg.weapon);
+      this._guestWeaponResolve = null;
+      return;
+    }
+    if (msg.type === 'level_pick' && this.mpRole === 'guest') {
+      this.runGuestLevelPick().catch((e) => console.error(e));
+      return;
+    }
+    if (msg.type === 'level_chosen' && this.mpRole === 'host') {
+      if (msg.cardId) {
+        const card = getPowerup(msg.cardId);
+        if (card?.apply) {
+          card.apply(this.allyState);
+          this.allyState.runPowerups.push(msg.cardId);
+          this.ally.syncStats();
+          this.refreshSharedMaxHp();
+        }
+      }
+      this._guestLevelResolve?.(msg.cardId);
+      this._guestLevelResolve = null;
+    }
+  }
+
+  handleNetDisconnect() {
+    if (this.gameState === 'game_over' || this.gameState === 'victory') return;
+    this.gameState = 'game_over';
+    this.physics.pause();
+    this.events.emit('game-over', {
+      wave: this.waveManager?.currentWave || 1,
+      level: this.playerState?.level || 1,
+      disconnect: true,
+    });
+  }
+
+  refreshSharedMaxHp() {
+    if (!this.isMultiplayer) return;
+    const hostMax = getMaxHp(this.playerState);
+    const guestMax = getMaxHp(this.allyState || this.playerState);
+    this.sharedMaxHp = Math.max(hostMax, guestMax);
+    this.sharedHp = Math.min(this.sharedHp, this.sharedMaxHp);
+    this.syncSharedHpToPlayers();
+  }
+
+  async runGuestWeaponPick() {
+    this.gameState = 'weapon_pick';
+    this.isPausedForCard = true;
+    await this.cardManager.show('weapon');
+    this.isPausedForCard = false;
+    this.net?.send({ type: 'weapon_chosen', weapon: this.playerState.weapon });
+    this.gameState = 'playing';
+  }
+
+  async runGuestLevelPick() {
+    this.gameState = 'level_up';
+    this.isPausedForCard = true;
+    await this.cardManager.show('powerup');
+    this.player.syncStats();
+    this.isPausedForCard = false;
+    const last = this.playerState.runPowerups?.[this.playerState.runPowerups.length - 1];
+    this.net?.send({ type: 'level_chosen', cardId: last || null });
+    this.gameState = 'playing';
+    this.refreshSharedMaxHp();
+  }
+
+  waitForGuestWeapon() {
+    return new Promise((resolve) => {
+      this._guestWeaponResolve = resolve;
+      this.net?.send({ type: 'weapon_pick' });
+      this.time.delayedCall(60000, () => {
+        if (this._guestWeaponResolve) {
+          this._guestWeaponResolve(null);
+          this._guestWeaponResolve = null;
+        }
+      });
+    });
+  }
+
+  waitForGuestLevelPick() {
+    return new Promise((resolve) => {
+      this._guestLevelResolve = resolve;
+      this.net?.send({ type: 'level_pick' });
+      this.time.delayedCall(60000, () => {
+        if (this._guestLevelResolve) {
+          this._guestLevelResolve(null);
+          this._guestLevelResolve = null;
+        }
+      });
+    });
   }
 
   create() {
@@ -55,6 +193,8 @@ export class GameScene extends Phaser.Scene {
     this.cardManager = new CardManager(this, this.uiSceneRef, this.playerState);
     this.combatSystem = new CombatSystem(this, this.player, this.waveManager, this.playerState);
 
+    setupMultiplayerPlayers(this);
+
     this.cursors = {
       W: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
       A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
@@ -64,6 +204,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     this.input.on('pointerdown', (pointer) => {
+      if (this.isMultiplayer && this.mpRole === 'guest') return;
       if (this.gameState !== 'playing' && this.gameState !== 'wave_pause') return;
       if (pointer.leftButtonDown()) {
         this.combatSystem.performPrimaryAttack(pointer);
@@ -76,6 +217,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.input.keyboard.on('keydown-Q', () => {
+      if (this.isMultiplayer && this.mpRole === 'guest') return;
       if (this.gameState !== 'playing' && this.gameState !== 'wave_pause') return;
       this.combatSystem.useAttackPowerup(this.input.activePointer);
     });
@@ -147,9 +289,24 @@ export class GameScene extends Phaser.Scene {
     this.levelSystem.playerState = this.playerState;
     this.cardManager.playerState = this.playerState;
     this.combatSystem.playerState = this.playerState;
+    if (this.isMultiplayer) {
+      this.allyState = createPlayerState();
+      if (this.ally) this.ally.playerState = this.allyState;
+      if (this.allyCombat) this.allyCombat.playerState = this.allyState;
+      this.sharedMaxHp = getMaxHp(this.playerState);
+      this.sharedHp = this.sharedMaxHp;
+      this.syncSharedHpToPlayers();
+    }
     this.player.respawn(0, 0);
+    if (this.ally) this.ally.respawn(40, 0);
     this.combatSystem.clearOrbs();
     this.events.emit('hud-update', { lives: this.lives, reset: true });
+
+    if (this.isMultiplayer && this.mpRole === 'guest') {
+      this.gameState = 'playing';
+      this.events.emit('hud-update');
+      return;
+    }
 
     const carry = this.continueCarry;
     this.continueCarry = null;
@@ -202,6 +359,14 @@ export class GameScene extends Phaser.Scene {
     this.isPausedForCard = true;
     await this.cardManager.show('weapon');
     this.isPausedForCard = false;
+
+    if (this.isMultiplayer && this.mpRole === 'host') {
+      this.events.emit('boss-message', 'Waiting for ally weapon…');
+      await this.waitForGuestWeapon();
+      this.events.emit('boss-message', '');
+      this.refreshSharedMaxHp();
+    }
+
     this.waveManager.startWave(waveNumber);
     this.gameState = 'playing';
     this.player.syncStats();
@@ -222,6 +387,15 @@ export class GameScene extends Phaser.Scene {
     if (this.player.hp > this.player.maxHp) {
       this.player.hp = this.player.maxHp;
     }
+
+    if (this.isMultiplayer && this.mpRole === 'host') {
+      syncSharedLevelToAlly(this);
+      this.events.emit('boss-message', 'Ally is picking a card…');
+      await this.waitForGuestLevelPick();
+      this.events.emit('boss-message', '');
+      this.refreshSharedMaxHp();
+    }
+
     this.isPausedForCard = false;
     this.gameState = 'playing';
     this.events.emit('hud-update');
@@ -242,19 +416,20 @@ export class GameScene extends Phaser.Scene {
         this.physics.pause();
         const goldReward = this.levelData?.clearGold ?? 1200;
         const diamondReward = this.levelData?.clearDiamonds ?? 0;
-        addCoins(goldReward);
+        const grantedGold = this.isMultiplayer ? Math.floor(goldReward / 2) : goldReward;
+        addCoins(grantedGold);
         if (diamondReward > 0) addDiamonds(diamondReward);
         markLevelComplete(this.levelId);
-        this.events.emit('coins-collected', goldReward);
+        this.events.emit('coins-collected', grantedGold);
         this.events.emit('level-complete', {
           wave,
           levelId: this.levelId,
           levelName: this.levelData?.name || 'Level',
           playerLevel: this.playerState.level,
           playerXp: this.playerState.xp,
-          goldReward,
+          goldReward: grantedGold,
           diamondReward,
-          canContinue: this.levelId === 'plains',
+          canContinue: this.levelId === 'plains' && !this.isMultiplayer,
           continueWeapon: this.playerState.weapon ? { ...this.playerState.weapon } : null,
           continueCards: [...(this.playerState.runPowerups || [])],
         });
@@ -300,6 +475,7 @@ export class GameScene extends Phaser.Scene {
 
     this.gameState = 'respawn';
     this.player.respawn(0, 0);
+    if (this.ally) this.ally.respawn(40, 0);
     this.combatSystem.clearOrbs();
     this.waveManager.respawnWave();
     this.gameState = 'playing';
@@ -343,6 +519,7 @@ export class GameScene extends Phaser.Scene {
     } catch {
       // ignore
     }
+    clearActiveNetplay();
     this.scene.stop('UIScene');
     this.scene.start('MenuScene');
   }
@@ -358,7 +535,23 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.isMultiplayer && this.mpRole === 'guest') {
+      this.net?.send(collectLocalInput(this));
+      // Soft local move for responsiveness; host snapshot corrects.
+      this.player.update(time, this.cursors, this.input.activePointer);
+      return;
+    }
+
     this.player.update(time, this.cursors, this.input.activePointer);
+
+    if (this.isMultiplayer && this.mpRole === 'host') {
+      if (this.guestInput) applyGuestInputOnHost(this, this.guestInput);
+      if (this.allyCombat && this.gameState === 'playing') this.allyCombat.update();
+      if (time - this.lastSnapshotAt >= 80) {
+        this.lastSnapshotAt = time;
+        this.net?.send(buildSnapshot(this));
+      }
+    }
 
     if (this.gameState === 'playing') {
       this.waveManager.update(time);

@@ -3,6 +3,7 @@ import { xpToNextLevel } from '../data/constants.js';
 import { getPowerup } from '../data/powerups.js';
 import { loadMeta } from '../data/meta.js';
 import { isPremiumShopCard } from '../data/shop.js';
+import { clearActiveNetplay } from '../systems/NetplayManager.js';
 
 const CONTINUE_PICK_COUNT = 4;
 
@@ -32,9 +33,20 @@ export class UIScene extends Phaser.Scene {
 
     this.waveText = this.add.text(640, 20, 'Wave 1', { fontFamily: 'Arial', fontSize: '24px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(102);
     this.weaponText = this.add.text(20, 90, 'Weapon: None', { fontFamily: 'Arial', fontSize: '14px', color: '#ddddaa' }).setScrollFactor(0).setDepth(102);
-    this.shieldText = this.add.text(20, 110, 'Shield: Ready', { fontFamily: 'Arial', fontSize: '13px', color: '#88ccff' }).setScrollFactor(0).setDepth(102);
-    this.attackText = this.add.text(20, 130, 'Q: —', { fontFamily: 'Arial', fontSize: '13px', color: '#ffcc88' }).setScrollFactor(0).setDepth(102);
-    this.coinText = this.add.text(20, 150, 'Coins: 0', { fontFamily: 'Arial', fontSize: '14px', color: '#ffd76a' }).setScrollFactor(0).setDepth(102);
+    this.allyWeaponText = this.add
+      .text(20, 108, '', { fontFamily: 'Arial', fontSize: '13px', color: '#ffcc88' })
+      .setScrollFactor(0)
+      .setDepth(102)
+      .setVisible(false);
+    this.coopText = this.add
+      .text(640, 48, '', { fontFamily: 'Arial', fontSize: '14px', color: '#88aaff', fontStyle: 'bold' })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(102)
+      .setVisible(false);
+    this.shieldText = this.add.text(20, 128, 'Shield: Ready', { fontFamily: 'Arial', fontSize: '13px', color: '#88ccff' }).setScrollFactor(0).setDepth(102);
+    this.attackText = this.add.text(20, 148, 'Q: —', { fontFamily: 'Arial', fontSize: '13px', color: '#ffcc88' }).setScrollFactor(0).setDepth(102);
+    this.coinText = this.add.text(20, 168, 'Coins: 0', { fontFamily: 'Arial', fontSize: '14px', color: '#ffd76a' }).setScrollFactor(0).setDepth(102);
 
     this.bossBarBg = this.add.rectangle(640, 58, 504, 22, 0x221111).setScrollFactor(0).setDepth(100).setVisible(false);
     this.bossBar = this.add.rectangle(640, 58, 500, 18, 0xcc3344).setScrollFactor(0).setDepth(101).setVisible(false);
@@ -102,6 +114,13 @@ export class UIScene extends Phaser.Scene {
       this.gameOverGroup.setVisible(false);
       this.hideCardPick();
       this.pendingContinue = null;
+      if (this.gameScene?.isMultiplayer) {
+        clearActiveNetplay();
+        this.scene.stop('GameScene');
+        this.scene.stop('UIScene');
+        this.scene.start('LevelsScene');
+        return;
+      }
       const levelId = this.gameScene?.levelId || 'plains';
       this.scene.stop('GameScene');
       this.scene.stop('UIScene');
@@ -119,6 +138,7 @@ export class UIScene extends Phaser.Scene {
       this.gameOverGroup.setVisible(false);
       this.hideCardPick();
       this.pendingContinue = null;
+      clearActiveNetplay();
       this.scene.stop('GameScene');
       this.scene.stop('UIScene');
       this.scene.start('LevelsScene');
@@ -446,6 +466,23 @@ export class UIScene extends Phaser.Scene {
     const weaponName = state.weapon ? state.weapon.name : 'None';
     this.weaponText.setText(`Weapon: ${weaponName}`);
 
+    if (gs.isMultiplayer) {
+      this.coopText.setVisible(true);
+      this.coopText.setText(gs.mpRole === 'host' ? 'Co-op Host' : 'Co-op Guest');
+      this.allyWeaponText.setVisible(true);
+      const label = gs.mpRole === 'host' ? 'Ally' : 'Host';
+      this.allyWeaponText.setText(`${label}: ${gs.allyState?.weapon?.name || '—'}`);
+      this.shieldText.setY(128);
+      this.attackText.setY(148);
+      this.coinText.setY(168);
+    } else {
+      this.coopText.setVisible(false);
+      this.allyWeaponText.setVisible(false);
+      this.shieldText.setY(110);
+      this.attackText.setY(130);
+      this.coinText.setY(150);
+    }
+
     const shieldCd = player.getShieldCooldownRemaining(gs.time.now);
     if (player.shieldActive) {
       this.shieldText.setText('Shield: ACTIVE');
@@ -489,10 +526,14 @@ export class UIScene extends Phaser.Scene {
     this.continueBtn.setVisible(false);
     this.continueText.setVisible(false);
     this.retryLayoutTwoButtons();
-    this.gameOverTitle.setText('Game Over');
+    this.gameOverTitle.setText(data.disconnect ? 'Disconnected' : 'Game Over');
     this.gameOverTitle.setColor('#ff6666');
     this.menuBtnLabel?.setText('Levels');
-    this.gameOverStats.setText(`Reached Wave ${data.wave}\nLevel ${data.level}\nCoins banked: ${loadMeta().coins}`);
+    this.gameOverStats.setText(
+      data.disconnect
+        ? 'Connection lost.\nReturn to Levels to host or join again.'
+        : `Reached Wave ${data.wave}\nLevel ${data.level}\nCoins banked: ${loadMeta().coins}`,
+    );
     this.gameOverGroup.setVisible(true);
   }
 
