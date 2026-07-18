@@ -13,7 +13,7 @@ export class GoblinKing extends Enemy {
   constructor(scene, x, y, wave) {
     super(scene, x, y, 'goblinKing', wave);
 
-    this.maxHp = getScaledBossHp(this.enemyData.hp, wave);
+    this.maxHp = getScaledBossHp(this.enemyData.hp, wave, 'goblinKing');
     this.hp = this.maxHp;
     this.isBoss = true;
     this.setDepth(6);

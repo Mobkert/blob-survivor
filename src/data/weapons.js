@@ -41,7 +41,8 @@ export const Weapons = {
     cooldownMs: 400,
     range: 70,
     arcDegrees: 90,
-    description: 'Balanced slash arc.',
+    zombiePerk: true,
+    description: 'Balanced slash arc. Instantly kills zombies.',
   },
   axe: {
     id: 'axe',
@@ -52,7 +53,8 @@ export const Weapons = {
     cooldownMs: 550,
     range: 65,
     arcDegrees: 120,
-    description: 'Wide, slower swings.',
+    zombiePerk: true,
+    description: 'Wide, slower swings. Instantly kills zombies.',
   },
   spear: {
     id: 'spear',
@@ -63,7 +65,8 @@ export const Weapons = {
     cooldownMs: 380,
     range: 110,
     arcDegrees: 45,
-    description: 'Long narrow thrust.',
+    zombiePerk: true,
+    description: 'Long narrow thrust. Instantly kills zombies.',
   },
   bomb: {
     id: 'bomb',
@@ -74,7 +77,8 @@ export const Weapons = {
     cooldownMs: 900,
     radius: 90,
     fuseMs: 800,
-    description: 'Placed bomb with delayed fuse.',
+    zombiePerk: true,
+    description: 'Placed bomb with delayed fuse. Instantly kills zombies.',
   },
   grenade: {
     id: 'grenade',
@@ -85,7 +89,8 @@ export const Weapons = {
     cooldownMs: 750,
     radius: 75,
     throwSpeed: 400,
-    description: 'Thrown toward cursor.',
+    zombiePerk: true,
+    description: 'Thrown toward cursor. Instantly kills zombies.',
   },
   shockwave: {
     id: 'shockwave',
@@ -96,7 +101,8 @@ export const Weapons = {
     cooldownMs: 650,
     radius: 100,
     instant: true,
-    description: 'Instant ring around you.',
+    zombiePerk: true,
+    description: 'Instant ring around you. Instantly kills zombies.',
   },
 };
 

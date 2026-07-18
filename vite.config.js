@@ -5,5 +5,9 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    watch: {
+      // Publishing rebuilds docs/ and can lock files; don't watch that folder.
+      ignored: ['**/docs/**'],
+    },
   },
 });

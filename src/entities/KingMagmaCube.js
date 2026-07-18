@@ -16,7 +16,7 @@ export class KingMagmaCube extends Enemy {
   constructor(scene, x, y, wave) {
     super(scene, x, y, 'kingMagmaCube', wave);
 
-    this.maxHp = getScaledBossHp(this.enemyData.hp, wave);
+    this.maxHp = getScaledBossHp(this.enemyData.hp, wave, 'kingMagmaCube');
     this.hp = this.maxHp;
     this.isBoss = true;
     this.setDepth(6);

@@ -156,8 +156,9 @@ export class UIScene extends Phaser.Scene {
         });
       }
     });
-    this.gameScene.events.on('boss-stunned', () => {
-      this.bossMessage.setText('The Goblin King is stunned!');
+    this.gameScene.events.on('boss-stunned', (boss) => {
+      const name = boss?.enemyData?.name || 'Boss';
+      this.bossMessage.setText(`The ${name} is stunned!`);
       this.bossMessage.setColor('#88ccff');
     });
     this.gameScene.events.on('game-paused', () => this.showPauseMenu());

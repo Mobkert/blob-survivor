@@ -4,13 +4,13 @@ export const Enemies = {
     id: 'zombie',
     name: 'Zombie',
     color: 0x4a7a3a,
-    hp: 1,
+    hp: 40,
     speed: 70,
     contactDamage: 8,
     xp: 1,
     coinMin: 2,
     coinMax: 6,
-    instantKill: true,
+    instantKill: false,
     radius: 18,
   },
   runner: {
@@ -227,12 +227,23 @@ export function getScaledEnemyHp(baseHp, wave) {
   return Math.floor(baseHp * (1 + (wave - 1) * 0.08));
 }
 
-export function getScaledBossHp(baseHp, wave) {
+/** Fixed HP per boss encounter (wave 7 / 14 / 21). */
+const BOSS_HP_BY_ENCOUNTER = {
+  goblinKing: [1400, 1750, 2150],
+  kingMagmaCube: [1600, 1800, 2400],
+};
+
+export function getScaledBossHp(baseHp, wave, bossId = null) {
   // Wave 7 = 1st fight, 14 = 2nd, 21 = 3rd, ...
   const encounter = Math.max(1, Math.floor(wave / 7));
-  // First fight uses normal wave-7 scaling (average difficulty).
+  const table = bossId ? BOSS_HP_BY_ENCOUNTER[bossId] : null;
+  if (table?.length) {
+    const index = Math.min(encounter - 1, table.length - 1);
+    return table[index];
+  }
+
+  // Fallback for any other boss: scale from base HP.
   const baseline = getScaledEnemyHp(baseHp, 7);
-  // Each later Goblin King fight gains +45% HP over the previous baseline step.
   return Math.floor(baseline * (1 + (encounter - 1) * 0.45));
 }
 

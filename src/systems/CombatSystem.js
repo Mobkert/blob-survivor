@@ -340,6 +340,16 @@ export class CombatSystem {
       damage *= 2;
       enemy.setTint(0xffff66);
     }
+
+    // Melee / big zombie perk: instant kill without changing weapon damage stats.
+    if (
+      enemy.typeId === 'zombie' &&
+      !options.fromCloud &&
+      (options.fromMelee || options.fromBig || options.zombiePerk)
+    ) {
+      damage = Math.max(damage, enemy.hp);
+    }
+
     this.applyStatusEffects(enemy);
     const killed = enemy.takeDamage(damage);
 
@@ -678,7 +688,11 @@ export class CombatSystem {
       if (dist > radius + enemy.enemyData.radius) return;
 
       this.applyStatusEffects(enemy);
-      if (enemy.takeDamage(splashDamage)) {
+      let dealt = splashDamage;
+      if (options.zombiePerk && enemy.typeId === 'zombie') {
+        dealt = Math.max(dealt, enemy.hp);
+      }
+      if (enemy.takeDamage(dealt)) {
         enemy.markDying();
         chainKills.push(enemy);
       }
@@ -1127,7 +1141,7 @@ export class CombatSystem {
       );
       const diff = Phaser.Math.Angle.Wrap(toEnemy - angle);
       if (Math.abs(diff) <= halfArc) {
-        this.hitEnemy(enemy, damage, { fromMelee: true });
+        this.hitEnemy(enemy, damage, { fromMelee: true, zombiePerk: !!weapon.zombiePerk });
         if (enemy.active && !enemy.isDying) hitTargets.push(enemy);
       }
     });
@@ -1273,7 +1287,7 @@ export class CombatSystem {
     const fuseMs = Math.max(200, (weapon.fuseMs || 800) + (this.playerState.fuseBonusMs || 0));
 
     const blast = (x, y) => {
-      this.createExplosion(x, y, damage, 0, radius);
+      this.createExplosion(x, y, damage, 0, radius, { zombiePerk: !!weapon.zombiePerk });
       this.scheduleAirstrike(x, y, damage, radius);
       if (this.playerState.singularity) {
         this.spawnSingularity(x, y, damage, radius);

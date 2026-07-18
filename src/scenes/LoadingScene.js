@@ -5,7 +5,7 @@ import { Music, bindMusicUnlock } from '../systems/MusicManager.js';
 /** Loading art is 1024x576 (same 16:9 as the game). */
 const ART_W = 1024;
 const ART_H = 576;
-/** Red dot next to "Mobkert" in the loading art. */
+/** Red/orange dot next to "Mobkert" in the loading art. */
 const RED_DOT_X = 932;
 const RED_DOT_Y = 540;
 
@@ -26,6 +26,9 @@ export class LoadingScene extends Phaser.Scene {
     if (!this.textures.exists('loading_screen')) {
       this.load.image('loading_screen', 'images/loading.png');
     }
+    if (!this.textures.exists('loading_screen_volcanic')) {
+      this.load.image('loading_screen_volcanic', 'images/loading_volcanic.png');
+    }
     if (!this.textures.exists('loading_pigeon')) {
       this.load.image('loading_pigeon', 'images/pigeon.png');
     }
@@ -37,9 +40,11 @@ export class LoadingScene extends Phaser.Scene {
 
     const scaleX = GAME_WIDTH / ART_W;
     const scaleY = GAME_HEIGHT / ART_H;
+    const useVolcanic = this.levelId === 'volcanic';
+    const bgKey = useVolcanic ? 'loading_screen_volcanic' : 'loading_screen';
 
     this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'loading_screen')
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, bgKey)
       .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
       .setDepth(0);
 

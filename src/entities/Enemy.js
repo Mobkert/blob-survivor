@@ -19,7 +19,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.typeId = typeId;
     this.wave = wave;
     this.maxHp = data.isBoss
-      ? getScaledBossHp(data.hp, wave)
+      ? getScaledBossHp(data.hp, wave, typeId)
       : getScaledEnemyHp(data.hp, wave);
     this.hp = this.maxHp;
     this.contactDamage = data.contactDamage;
