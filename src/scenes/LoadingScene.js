@@ -19,6 +19,7 @@ export class LoadingScene extends Phaser.Scene {
     this.nextScene = data.nextScene || 'MenuScene';
     this.launchScenes = Array.isArray(data.launchScenes) ? data.launchScenes : [];
     this.levelId = data.levelId || 'plains';
+    this.continueCarry = data.continueCarry || null;
   }
 
   preload() {
@@ -78,6 +79,9 @@ export class LoadingScene extends Phaser.Scene {
         this.scene.launch(key);
       }
     });
-    this.scene.start(this.nextScene, { levelId: this.levelId });
+    this.scene.start(this.nextScene, {
+      levelId: this.levelId,
+      continueCarry: this.continueCarry || null,
+    });
   }
 }

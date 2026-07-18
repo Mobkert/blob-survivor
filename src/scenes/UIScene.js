@@ -4,6 +4,8 @@ import { getPowerup } from '../data/powerups.js';
 import { loadMeta } from '../data/meta.js';
 import { isPremiumShopCard } from '../data/shop.js';
 
+const CONTINUE_PICK_COUNT = 4;
+
 export class UIScene extends Phaser.Scene {
   constructor() {
     super('UIScene');
@@ -12,6 +14,9 @@ export class UIScene extends Phaser.Scene {
   create() {
     this.gameScene = this.scene.get('GameScene');
     this.runCoins = 0;
+    this.pendingContinue = null;
+    this.continueSelected = new Set();
+    this.continuePickMode = false;
 
     this.cardPickGroup = this.add.container(0, 0).setScrollFactor(0).setDepth(500).setVisible(false);
     this.cardPickPanels = [];
@@ -83,31 +88,52 @@ export class UIScene extends Phaser.Scene {
     this.createPauseMenu();
 
     this.gameOverGroup = this.add.container(640, 360).setScrollFactor(0).setDepth(300).setVisible(false);
-    const goBg = this.add.rectangle(0, 0, 480, 280, 0x111811, 0.95).setStrokeStyle(2, 0x66aa66);
-    this.gameOverTitle = this.add.text(0, -90, 'Game Over', { fontFamily: 'Arial', fontSize: '42px', color: '#ff6666', fontStyle: 'bold' }).setOrigin(0.5);
-    this.gameOverStats = this.add.text(0, -10, '', { fontFamily: 'Arial', fontSize: '20px', color: '#cccccc', align: 'center' }).setOrigin(0.5);
-    const retryBtn = this.add.rectangle(-110, 80, 180, 48, 0x2a5a28).setStrokeStyle(2, 0x66aa66).setInteractive({ useHandCursor: true });
-    const retryText = this.add.text(-110, 80, 'Play Again', { fontFamily: 'Arial', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5);
-    const menuBtn = this.add.rectangle(110, 80, 180, 48, 0x3a3a28).setStrokeStyle(2, 0xaaaa66).setInteractive({ useHandCursor: true });
-    const menuText = this.add.text(110, 80, 'Menu', { fontFamily: 'Arial', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5);
+    this.goBg = this.add.rectangle(0, 0, 520, 320, 0x111811, 0.95).setStrokeStyle(2, 0x66aa66);
+    this.gameOverTitle = this.add.text(0, -110, 'Game Over', { fontFamily: 'Arial', fontSize: '42px', color: '#ff6666', fontStyle: 'bold' }).setOrigin(0.5);
+    this.gameOverStats = this.add.text(0, -30, '', { fontFamily: 'Arial', fontSize: '18px', color: '#cccccc', align: 'center' }).setOrigin(0.5);
+    const retryBtn = this.add.rectangle(-160, 95, 150, 48, 0x2a5a28).setStrokeStyle(2, 0x66aa66).setInteractive({ useHandCursor: true });
+    const retryText = this.add.text(-160, 95, 'Play Again', { fontFamily: 'Arial', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
+    this.continueBtn = this.add.rectangle(0, 95, 150, 48, 0x6a2818).setStrokeStyle(2, 0xcc6644).setInteractive({ useHandCursor: true }).setVisible(false);
+    this.continueText = this.add.text(0, 95, 'Continue', { fontFamily: 'Arial', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
+    const menuBtn = this.add.rectangle(160, 95, 150, 48, 0x3a3a28).setStrokeStyle(2, 0xaaaa66).setInteractive({ useHandCursor: true });
+    const menuText = this.add.text(160, 95, 'Levels', { fontFamily: 'Arial', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
 
     retryBtn.on('pointerdown', () => {
       this.gameOverGroup.setVisible(false);
       this.hideCardPick();
+      this.pendingContinue = null;
       const levelId = this.gameScene?.levelId || 'plains';
       this.scene.stop('GameScene');
       this.scene.stop('UIScene');
       this.scene.launch('UIScene');
       this.scene.start('GameScene', { levelId });
     });
+    this.continueBtn.on('pointerover', () => {
+      if (this.continueBtn.visible) this.continueBtn.setFillStyle(0x8a3820);
+    });
+    this.continueBtn.on('pointerout', () => {
+      if (this.continueBtn.visible) this.continueBtn.setFillStyle(0x6a2818);
+    });
+    this.continueBtn.on('pointerdown', () => this.onContinuePressed());
     menuBtn.on('pointerdown', () => {
       this.gameOverGroup.setVisible(false);
       this.hideCardPick();
+      this.pendingContinue = null;
       this.scene.stop('GameScene');
       this.scene.stop('UIScene');
       this.scene.start('LevelsScene');
     });
-    this.gameOverGroup.add([goBg, this.gameOverTitle, this.gameOverStats, retryBtn, retryText, menuBtn, menuText]);
+    this.gameOverGroup.add([
+      this.goBg,
+      this.gameOverTitle,
+      this.gameOverStats,
+      retryBtn,
+      retryText,
+      this.continueBtn,
+      this.continueText,
+      menuBtn,
+      menuText,
+    ]);
     this.menuBtnLabel = menuText;
 
     this.gameScene.events.on('hud-update', () => this.refreshHud());
@@ -381,6 +407,14 @@ export class UIScene extends Phaser.Scene {
 
   hideCardPick() {
     this.cardPickCallback = null;
+    this.continuePickMode = false;
+    this.continueSelected = new Set();
+    this.continuePickCards = null;
+    this.continuePickWeapon = null;
+    this.continueConfirmBtn = null;
+    this.continueConfirmLabel = null;
+    this.continueCountText = null;
+    this.continueCardNodes = [];
     this.cardPickGroup.removeAll(true);
     this.cardPickPanels = [];
     this.cardPickGroup.setVisible(false);
@@ -448,6 +482,10 @@ export class UIScene extends Phaser.Scene {
 
   showGameOver(data) {
     this.hidePauseMenu();
+    this.pendingContinue = null;
+    this.continueBtn.setVisible(false);
+    this.continueText.setVisible(false);
+    this.retryLayoutTwoButtons();
     this.gameOverTitle.setText('Game Over');
     this.gameOverTitle.setColor('#ff6666');
     this.menuBtnLabel?.setText('Levels');
@@ -460,10 +498,274 @@ export class UIScene extends Phaser.Scene {
     this.gameOverTitle.setText('Level Complete!');
     this.gameOverTitle.setColor('#88ff88');
     this.menuBtnLabel?.setText('Levels');
+    const diamondLine =
+      data.diamondReward > 0 ? `\n+${data.diamondReward} diamonds` : '';
     this.gameOverStats.setText(
-      `${data.levelName || 'Level'} cleared!\n+${data.goldReward || 1200} gold\nSurvived ${data.wave} waves\nPlayer level ${data.playerLevel}\nCoins banked: ${loadMeta().coins}`,
+      `${data.levelName || 'Level'} cleared!\n+${data.goldReward || 1200} gold${diamondLine}\nSurvived ${data.wave} waves\nPlayer level ${data.playerLevel}\nCoins banked: ${loadMeta().coins}`,
     );
+
+    if (data.canContinue) {
+      this.pendingContinue = {
+        weapon: data.continueWeapon || null,
+        cardIds: Array.isArray(data.continueCards) ? data.continueCards : [],
+      };
+      this.continueBtn.setVisible(true);
+      this.continueText.setVisible(true);
+      this.retryLayoutThreeButtons();
+    } else {
+      this.pendingContinue = null;
+      this.continueBtn.setVisible(false);
+      this.continueText.setVisible(false);
+      this.retryLayoutTwoButtons();
+    }
+
     this.gameOverGroup.setVisible(true);
+  }
+
+  retryLayoutTwoButtons() {
+    const retry = this.gameOverGroup.list[3];
+    const retryLabel = this.gameOverGroup.list[4];
+    const menu = this.gameOverGroup.list[7];
+    const menuLabel = this.gameOverGroup.list[8];
+    if (retry?.setPosition) retry.setPosition(-110, 95);
+    if (retryLabel?.setPosition) retryLabel.setPosition(-110, 95);
+    if (menu?.setPosition) menu.setPosition(110, 95);
+    if (menuLabel?.setPosition) menuLabel.setPosition(110, 95);
+  }
+
+  retryLayoutThreeButtons() {
+    const retry = this.gameOverGroup.list[3];
+    const retryLabel = this.gameOverGroup.list[4];
+    const menu = this.gameOverGroup.list[7];
+    const menuLabel = this.gameOverGroup.list[8];
+    if (retry?.setPosition) retry.setPosition(-160, 95);
+    if (retryLabel?.setPosition) retryLabel.setPosition(-160, 95);
+    if (menu?.setPosition) menu.setPosition(160, 95);
+    if (menuLabel?.setPosition) menuLabel.setPosition(160, 95);
+    this.continueBtn.setPosition(0, 95);
+    this.continueText.setPosition(0, 95);
+  }
+
+  onContinuePressed() {
+    if (!this.pendingContinue) return;
+    const pending = this.pendingContinue;
+    this.gameOverGroup.setVisible(false);
+
+    const cards = (pending.cardIds || [])
+      .map((id, index) => {
+        const card = getPowerup(id);
+        if (!card) return null;
+        return { ...card, pickIndex: index };
+      })
+      .filter(Boolean);
+
+    if (cards.length === 0) {
+      this.startVolcanicContinue(pending.weapon, []);
+      return;
+    }
+
+    this.showContinueCardPick(cards, pending.weapon);
+  }
+
+  showContinueCardPick(cards, weapon) {
+    this.hideCardPick();
+    this.continuePickMode = true;
+    this.continueSelected = new Set();
+    this.continuePickCards = cards;
+    this.continuePickWeapon = weapon;
+    this.continuePickNeeded = Math.min(CONTINUE_PICK_COUNT, cards.length);
+
+    this.cardPickGroup.setVisible(true);
+
+    const width = 1280;
+    const height = 720;
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.78);
+    this.cardPickGroup.add(overlay);
+
+    const titleText = this.add
+      .text(width / 2, 48, `Pick ${this.continuePickNeeded} cards`, {
+        fontFamily: 'Arial',
+        fontSize: '36px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+    this.cardPickGroup.add(titleText);
+
+    const weaponName = weapon?.name || 'your weapon';
+    const subtitle = this.add
+      .text(
+        width / 2,
+        92,
+        `Choose cards from Plains to bring into Volcanic Ridge.\nYou keep ${weaponName} until wave 5, then you can change.`,
+        {
+          fontFamily: 'Arial',
+          fontSize: '16px',
+          color: '#ccbbaa',
+          align: 'center',
+        },
+      )
+      .setOrigin(0.5);
+    this.cardPickGroup.add(subtitle);
+
+    this.continueCountText = this.add
+      .text(width / 2, 140, `Selected 0 / ${this.continuePickNeeded}`, {
+        fontFamily: 'Arial',
+        fontSize: '20px',
+        color: '#ffcc88',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+    this.cardPickGroup.add(this.continueCountText);
+
+    const cols = cards.length <= 4 ? cards.length : cards.length <= 8 ? 4 : 5;
+    const cardW = cards.length > 8 ? 170 : 200;
+    const cardH = cards.length > 8 ? 200 : 240;
+    const gapX = 14;
+    const gapY = 12;
+    const rows = Math.ceil(cards.length / cols);
+    const gridW = cols * cardW + (cols - 1) * gapX;
+    const startX = (width - gridW) / 2 + cardW / 2;
+    const gridH = rows * cardH + (rows - 1) * gapY;
+    const startY = Math.max(190, Math.min(250, (height - 100 - gridH) / 2 + cardH / 2));
+
+    this.continueCardNodes = [];
+    cards.forEach((card, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      const x = startX + col * (cardW + gapX);
+      const y = startY + row * (cardH + gapY);
+      this.createContinueCardPanel(x, y, cardW, cardH, card, index);
+    });
+
+    this.continueConfirmBtn = this.add
+      .rectangle(width / 2, height - 48, 240, 50, 0x444444)
+      .setStrokeStyle(2, 0x888888);
+    this.continueConfirmLabel = this.add
+      .text(width / 2, height - 48, 'Confirm', {
+        fontFamily: 'Arial',
+        fontSize: '22px',
+        color: '#aaaaaa',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+    this.cardPickGroup.add([this.continueConfirmBtn, this.continueConfirmLabel]);
+    this.refreshContinueConfirm();
+  }
+
+  createContinueCardPanel(x, y, w, h, card, index) {
+    const premium = isPremiumShopCard(card);
+    const fill = premium ? 0x14081f : 0x1a2a18;
+    const stroke = premium ? 0xffd24a : card.color || 0x88aa88;
+
+    const bg = this.add
+      .rectangle(x, y, w, h, fill, 0.98)
+      .setStrokeStyle(3, stroke)
+      .setInteractive({ useHandCursor: true });
+
+    const icon = this.add.circle(x, y - 70, 28, card.color || 0xffffff, 1);
+    const name = this.add
+      .text(x, y - 18, card.name, {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: premium ? '#ffe9b0' : '#ffffff',
+        fontStyle: 'bold',
+        align: 'center',
+        wordWrap: { width: w - 16 },
+      })
+      .setOrigin(0.5);
+
+    const desc = this.add
+      .text(x, y + 50, card.description || '', {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#ccdccc',
+        align: 'center',
+        wordWrap: { width: w - 18 },
+      })
+      .setOrigin(0.5);
+
+    const check = this.add
+      .text(x + w / 2 - 16, y - h / 2 + 14, '', {
+        fontFamily: 'Arial',
+        fontSize: '18px',
+        color: '#88ff88',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    bg.on('pointerdown', () => this.toggleContinueCard(index));
+
+    this.cardPickGroup.add([bg, icon, name, desc, check]);
+    this.continueCardNodes.push({ bg, check, stroke, fill, index });
+  }
+
+  toggleContinueCard(index) {
+    if (!this.continuePickMode) return;
+    if (this.continueSelected.has(index)) {
+      this.continueSelected.delete(index);
+    } else {
+      if (this.continueSelected.size >= this.continuePickNeeded) return;
+      this.continueSelected.add(index);
+    }
+
+    this.continueCardNodes.forEach((node) => {
+      const selected = this.continueSelected.has(node.index);
+      node.bg.setStrokeStyle(selected ? 4 : 3, selected ? 0x88ff88 : node.stroke);
+      node.bg.setFillStyle(selected ? 0x2a4a28 : node.fill, 0.98);
+      node.check.setText(selected ? '✓' : '');
+    });
+
+    this.continueCountText.setText(
+      `Selected ${this.continueSelected.size} / ${this.continuePickNeeded}`,
+    );
+    this.refreshContinueConfirm();
+  }
+
+  refreshContinueConfirm() {
+    const ready = this.continueSelected.size === this.continuePickNeeded;
+    if (!this.continueConfirmBtn) return;
+    this.continueConfirmBtn.off('pointerdown');
+    this.continueConfirmBtn.disableInteractive();
+    if (ready) {
+      this.continueConfirmBtn.setFillStyle(0x6a2818);
+      this.continueConfirmBtn.setStrokeStyle(2, 0xcc6644);
+      this.continueConfirmLabel.setColor('#ffffff');
+      this.continueConfirmBtn.setInteractive({ useHandCursor: true });
+      this.continueConfirmBtn.on('pointerdown', () => this.confirmContinuePick());
+    } else {
+      this.continueConfirmBtn.setFillStyle(0x444444);
+      this.continueConfirmBtn.setStrokeStyle(2, 0x888888);
+      this.continueConfirmLabel.setColor('#aaaaaa');
+    }
+  }
+
+  confirmContinuePick() {
+    if (this.continueSelected.size !== this.continuePickNeeded) return;
+    const cardIds = [...this.continueSelected]
+      .sort((a, b) => a - b)
+      .map((i) => this.continuePickCards[i].id);
+    const weapon = this.continuePickWeapon;
+    this.hideCardPick();
+    this.startVolcanicContinue(weapon, cardIds);
+  }
+
+  startVolcanicContinue(weapon, cardIds) {
+    this.pendingContinue = null;
+    this.continuePickMode = false;
+    this.hideCardPick();
+    this.scene.stop('GameScene');
+    this.scene.stop('UIScene');
+    this.scene.start('LoadingScene', {
+      durationMs: 3000,
+      nextScene: 'GameScene',
+      launchScenes: ['UIScene'],
+      levelId: 'volcanic',
+      continueCarry: {
+        weapon: weapon ? { ...weapon } : null,
+        cardIds: [...cardIds],
+      },
+    });
   }
 
   update() {

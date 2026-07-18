@@ -2,7 +2,9 @@ import { getWaveComposition, getSpawnPositions } from '../data/waves.js';
 import { isBossWave } from '../data/enemies.js';
 import { Enemy } from '../entities/Enemy.js';
 import { GoblinKing } from '../entities/GoblinKing.js';
+import { KingMagmaCube } from '../entities/KingMagmaCube.js';
 import { Wizard, isWizardType } from '../entities/Wizard.js';
+import { MagmaCube, isMagmaType } from '../entities/MagmaCube.js';
 
 export class WaveManager {
   /**
@@ -19,6 +21,10 @@ export class WaveManager {
     this.activeBoss = null;
   }
 
+  get levelId() {
+    return this.scene.levelId || 'plains';
+  }
+
   get aliveCount() {
     return this.enemies.countActive(true);
   }
@@ -30,14 +36,19 @@ export class WaveManager {
     this.activeBoss = null;
 
     if (isBossWave(waveNumber)) {
-      const boss = new GoblinKing(this.scene, 0, 0, waveNumber);
+      let boss;
+      if (this.levelId === 'volcanic') {
+        boss = new KingMagmaCube(this.scene, 0, 0, waveNumber);
+      } else {
+        boss = new GoblinKing(this.scene, 0, 0, waveNumber);
+      }
       this.enemies.add(boss);
       this.activeBoss = boss;
       this.scene.events.emit('wave-started', waveNumber);
       return;
     }
 
-    const composition = getWaveComposition(waveNumber);
+    const composition = getWaveComposition(waveNumber, this.levelId);
     const positions = getSpawnPositions(composition.length, this.scene.arenaSize);
 
     composition.forEach((typeId, index) => {
@@ -45,6 +56,8 @@ export class WaveManager {
       let enemy;
       if (isWizardType(typeId)) {
         enemy = new Wizard(this.scene, pos.x, pos.y, typeId, waveNumber);
+      } else if (isMagmaType(typeId)) {
+        enemy = new MagmaCube(this.scene, pos.x, pos.y, typeId, waveNumber);
       } else {
         enemy = new Enemy(this.scene, pos.x, pos.y, typeId, waveNumber);
       }

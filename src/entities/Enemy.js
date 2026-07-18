@@ -33,6 +33,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     this.poisonEndTime = 0;
     this.poisonTickTime = 0;
+    this.burnEndTime = 0;
+    this.burnTickTime = 0;
+    this.burnDamage = 0;
     this.slowMultiplier = 1;
     this.slowEndTime = 0;
     this.isDying = false;
@@ -57,6 +60,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.takeDamage(this.poisonDamage || 3, true);
       }
       this.setTint(0x88ff44);
+    } else if (time < this.burnEndTime) {
+      if (time >= this.burnTickTime) {
+        this.burnTickTime = time + 500;
+        this.takeDamage(this.burnDamage || 4, true);
+      }
+      this.setTint(0xff6622);
     } else if (time >= this.slowEndTime) {
       this.clearTint();
     }
@@ -113,6 +122,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.poisonEndTime = time + 3000 + bonusMs;
     this.poisonTickTime = time;
     this.poisonDamage = 3 + bonusDamage;
+  }
+
+  applyBurn(time, damage = 4, ms = 2500) {
+    this.burnEndTime = time + ms;
+    this.burnTickTime = time;
+    this.burnDamage = damage;
   }
 
   applySlow(time, bonusMs = 0, multiplier = 0.5) {

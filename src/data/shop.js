@@ -1114,6 +1114,74 @@ export const ShopItems = {
     },
   },
 
+  // --- magma-themed cards (Volcanic Ridge) ---
+  magmaCore: {
+    id: 'magmaCore',
+    name: 'Magma Core',
+    category: 'effect',
+    color: 0xff4422,
+    price: 520,
+    description: 'Hits ignite foes with burning magma. +40ms attack CD.',
+    eligible: () => true,
+    apply: (state) => {
+      state.magmaCore = true;
+      addCooldownTax(state, 0, 40);
+    },
+  },
+  scorchedGround: {
+    id: 'scorchedGround',
+    name: 'Scorched Ground',
+    category: 'effect',
+    color: 0xcc3311,
+    price: 580,
+    description: 'Kills leave a pool of lava that scorches enemies.',
+    eligible: () => true,
+    apply: (state) => {
+      state.scorchedGround = true;
+    },
+  },
+  obsidianSkin: {
+    id: 'obsidianSkin',
+    name: 'Obsidian Skin',
+    category: 'passive',
+    color: 0x3a2218,
+    price: 640,
+    description: '+35 max HP, take 10% less damage, burn enemies that touch you. -8% move speed.',
+    eligible: () => true,
+    apply: (state) => {
+      state.obsidianSkin = true;
+      state.maxHpBonus += 35;
+      state.damageTakenMultiplier *= 0.9;
+      state.speedMultiplier *= 0.92;
+    },
+  },
+  magmaPulse: {
+    id: 'magmaPulse',
+    name: 'Magma Pulse',
+    category: 'explosive',
+    color: 0xff6622,
+    price: 720,
+    description: 'Every 7s, erupt a magma pulse around you. Take +6% damage.',
+    eligible: () => true,
+    apply: (state) => {
+      state.magmaPulse = true;
+      state.damageTakenMultiplier *= 1.06;
+    },
+  },
+  cinderRing: {
+    id: 'cinderRing',
+    name: 'Cinder Ring',
+    category: 'effect',
+    color: 0xffaa44,
+    price: 690,
+    description: 'Kills unleash an expanding ring of cinders. +50ms attack CD.',
+    eligible: () => true,
+    apply: (state) => {
+      state.cinderRing = true;
+      addCooldownTax(state, 0, 50);
+    },
+  },
+
   // --- boss drop (never sold in shop) ---
   tank: {
     id: 'tank',

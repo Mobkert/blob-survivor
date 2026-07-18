@@ -113,6 +113,13 @@ export function createPlayerState() {
     rampageStacks: 0,
     orbitalStrike: false,
     tankCard: false,
+    magmaCore: false,
+    scorchedGround: false,
+    obsidianSkin: false,
+    magmaPulse: false,
+    cinderRing: false,
+    /** Powerup card ids picked this run (for Plains → Volcanic continue). */
+    runPowerups: [],
   };
 }
 

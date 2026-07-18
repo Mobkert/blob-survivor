@@ -45,6 +45,26 @@ export class BootScene extends Phaser.Scene {
       g.destroy();
     }
 
+    // Volcanic Ridge: red / brown / black checkered ash
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const a = 0x5a1810;
+      const b = 0x2a1008;
+      const s = 16;
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+          g.fillStyle((row + col) % 2 === 0 ? a : b, 1);
+          g.fillRect(col * s, row * s, s, s);
+        }
+      }
+      g.fillStyle(0xff4400, 0.55);
+      g.fillCircle(20, 44, 5);
+      g.fillStyle(0xffaa33, 0.7);
+      g.fillCircle(44, 18, 4);
+      g.generateTexture('level_icon_volcanic', 64, 64);
+      g.destroy();
+    }
+
     // Locked / coming soon: grey checkered floor
     {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -313,6 +333,58 @@ export class BootScene extends Phaser.Scene {
       g.generateTexture(key, size, size);
       g.destroy();
     });
+
+    this.drawMagmaCube('enemy_magmaCube', 36, 0xdd4422, 0x881100);
+    this.drawMagmaCube('enemy_magmaBrute', 44, 0x882200, 0x440800);
+    this.drawMagmaCube('enemy_magmaSpitter', 36, 0xff6622, 0xaa3300);
+    this.drawKingMagmaCube();
+  }
+
+  drawMagmaCube(key, size, body, shade) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const pad = 2;
+    g.fillStyle(shade, 1);
+    g.fillRoundedRect(pad + 2, pad + 2, size - pad * 2, size - pad * 2, 4);
+    g.fillStyle(body, 1);
+    g.fillRoundedRect(pad, pad, size - pad * 2 - 2, size - pad * 2 - 2, 4);
+    g.fillStyle(0xffaa44, 0.45);
+    g.fillRoundedRect(pad + 3, pad + 3, (size - pad * 2) * 0.45, (size - pad * 2) * 0.35, 3);
+    const eyeY = size * 0.42;
+    const eyeR = Math.max(2.5, size * 0.08);
+    g.fillStyle(0x111111, 1);
+    g.fillCircle(size * 0.35, eyeY, eyeR);
+    g.fillCircle(size * 0.65, eyeY, eyeR);
+    g.fillStyle(0xffee88, 1);
+    g.fillCircle(size * 0.35, eyeY, eyeR * 0.45);
+    g.fillCircle(size * 0.65, eyeY, eyeR * 0.45);
+    g.generateTexture(key, size, size);
+    g.destroy();
+  }
+
+  drawKingMagmaCube() {
+    const size = 100;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x3a0800, 1);
+    g.fillRoundedRect(10, 14, 80, 78, 8);
+    g.fillStyle(0xcc2200, 1);
+    g.fillRoundedRect(8, 10, 78, 76, 8);
+    g.fillStyle(0xff5522, 1);
+    g.fillRoundedRect(14, 16, 66, 58, 6);
+    g.fillStyle(0xffaa44, 0.5);
+    g.fillRoundedRect(18, 20, 30, 22, 4);
+    g.fillStyle(0x111111, 1);
+    g.fillCircle(34, 48, 9);
+    g.fillCircle(66, 48, 9);
+    g.fillStyle(0xffee66, 1);
+    g.fillCircle(34, 48, 4);
+    g.fillCircle(66, 48, 4);
+    g.fillStyle(0xffffff, 0.9);
+    g.fillCircle(32, 46, 1.5);
+    g.fillCircle(64, 46, 1.5);
+    g.fillStyle(0xff3300, 0.7);
+    g.fillEllipse(50, 72, 22, 8);
+    g.generateTexture('enemy_kingMagmaCube', size, size);
+    g.destroy();
   }
 
   createProjectileTexture() {
@@ -360,6 +432,31 @@ export class BootScene extends Phaser.Scene {
       }
 
       g.generateTexture(`tile_${index}`, TILE_SIZE, TILE_SIZE);
+      g.destroy();
+    });
+
+    // Volcanic Ridge: red / brown / black ash floor
+    const volcanic = [0x2a1008, 0x4a1810, 0x1a0808, 0x5a2210, 0x3a140c];
+    volcanic.forEach((color, index) => {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(color, 1);
+      g.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+
+      g.fillStyle(0x111111, 0.35);
+      for (let i = 0; i < 5; i++) {
+        const x = Phaser.Math.Between(0, TILE_SIZE - 10);
+        const y = Phaser.Math.Between(0, TILE_SIZE - 10);
+        g.fillRect(x, y, 6, 4);
+      }
+
+      g.fillStyle(0xff4400, 0.22);
+      for (let i = 0; i < 3; i++) {
+        const x = Phaser.Math.Between(4, TILE_SIZE - 8);
+        const y = Phaser.Math.Between(4, TILE_SIZE - 8);
+        g.fillCircle(x, y, 2 + (i % 2));
+      }
+
+      g.generateTexture(`vtile_${index}`, TILE_SIZE, TILE_SIZE);
       g.destroy();
     });
   }

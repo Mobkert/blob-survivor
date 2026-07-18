@@ -11,6 +11,7 @@ export function defaultMeta() {
     coins: 0,
     diamonds: 0,
     unlocked: [],
+    completedLevels: [],
     shopOfferIds: [],
     shopOfferUntil: 0,
   };
@@ -21,6 +22,7 @@ function cloneMeta(meta) {
     coins: Math.max(0, Number(meta?.coins) || 0),
     diamonds: Math.max(0, Number(meta?.diamonds) || 0),
     unlocked: Array.isArray(meta?.unlocked) ? [...meta.unlocked] : [],
+    completedLevels: Array.isArray(meta?.completedLevels) ? [...meta.completedLevels] : [],
     shopOfferIds: Array.isArray(meta?.shopOfferIds) ? [...meta.shopOfferIds] : [],
     shopOfferUntil: Number(meta?.shopOfferUntil) || 0,
   };
@@ -245,6 +247,20 @@ export function unlockShopItem(id) {
 
 export function isUnlocked(id) {
   return loadMeta().unlocked.includes(id);
+}
+
+export function markLevelComplete(levelId) {
+  if (!levelId) return loadMeta();
+  const meta = loadMeta();
+  if (!meta.completedLevels.includes(levelId)) {
+    meta.completedLevels.push(levelId);
+    saveMeta(meta);
+  }
+  return meta;
+}
+
+export function isLevelCompleted(levelId) {
+  return loadMeta().completedLevels.includes(levelId);
 }
 
 export { SHOP_ROTATION_MS };

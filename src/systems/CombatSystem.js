@@ -25,6 +25,8 @@ export class CombatSystem {
     this.activePhoenixPlumes = 0;
     this.lastEmberTrail = 0;
     this.lastOrbitalStrike = 0;
+    this.lastMagmaPulse = 0;
+    this.activeScorchedPools = 0;
 
     this.projectiles = scene.add.group();
     this.xpOrbs = scene.add.group();
@@ -92,6 +94,28 @@ export class CombatSystem {
     }
 
     this.player.takeDamage(enemy.contactDamage, time);
+
+    if (enemy.enemyData?.appliesBurn) {
+      this.player.applyBurn(
+        time,
+        enemy.enemyData.burnDamage || 4,
+        enemy.enemyData.burnMs || 2200,
+      );
+    }
+
+    if (this.playerState.obsidianSkin && (!enemy._lastObsidianHit || time - enemy._lastObsidianHit > 350)) {
+      enemy._lastObsidianHit = time;
+      this.hitEnemy(enemy, 8, { fromCloud: true });
+      enemy.applyBurn?.(time, 5, 2000);
+      this.scene.fx?.burst(enemy.x, enemy.y, {
+        count: 4,
+        color: 0xff5522,
+        speed: 70,
+        life: 160,
+        size: 3,
+      });
+    }
+
     if (this.player.isDead()) {
       this.scene.events.emit('player-died');
     }
@@ -358,6 +382,16 @@ export class CombatSystem {
     if (this.playerState.slowOnHit) {
       enemy.applySlow(this.scene.time.now, this.playerState.slowBonusMs || 0);
     }
+    if (this.playerState.magmaCore) {
+      enemy.applyBurn?.(this.scene.time.now, 5, 2600);
+      this.scene.fx?.burst(enemy.x, enemy.y, {
+        count: 3,
+        color: 0xff6622,
+        speed: 50,
+        life: 140,
+        size: 2,
+      });
+    }
   }
 
   spawnToxicCloud(x, y) {
@@ -481,6 +515,14 @@ export class CombatSystem {
       this.spawnPhoenixPlume(enemy.x, enemy.y);
     }
 
+    if (this.playerState.scorchedGround) {
+      this.spawnScorchedGround(enemy.x, enemy.y);
+    }
+
+    if (this.playerState.cinderRing) {
+      this.spawnCinderRing(enemy.x, enemy.y);
+    }
+
     if (this.playerState.shatter && options.fromMelee) {
       this.createExplosion(enemy.x, enemy.y, 18, 0, 42, {
         skipAirstrike: true,
@@ -488,7 +530,7 @@ export class CombatSystem {
       });
     }
 
-    if (enemy.enemyData?.isBoss || enemy.typeId === 'goblinKing') {
+    if (enemy.enemyData?.isBoss || enemy.typeId === 'goblinKing' || enemy.typeId === 'kingMagmaCube') {
       this.tryDropTankCard(enemy.x, enemy.y);
     }
 
@@ -529,6 +571,8 @@ export class CombatSystem {
     if (typeof item.apply === 'function') {
       item.apply(this.playerState);
     }
+    if (!this.playerState.runPowerups) this.playerState.runPowerups = [];
+    this.playerState.runPowerups.push(cardId);
     this.player.syncStats();
     // Grant the new max HP immediately so Tank feels rewarding on pickup.
     if (cardId === 'tank') {
@@ -1544,6 +1588,90 @@ export class CombatSystem {
       this.lastOrbitalStrike = now;
       this.fireOrbitalStrike();
     }
+
+    if (this.playerState.magmaPulse && now - this.lastMagmaPulse >= 7000) {
+      this.lastMagmaPulse = now;
+      this.fireMagmaPulse();
+    }
+  }
+
+  spawnScorchedGround(x, y) {
+    if (this.activeScorchedPools >= 4) return;
+    this.activeScorchedPools += 1;
+    const fx = this.scene.fx;
+    const pool = fx?.hold(x, y, 36, 0xff4400, 0.4, 5);
+    const glow = fx?.hold(x, y, 22, 0xffaa33, 0.35, 6);
+    let life = 1800;
+    const hit = new Set();
+    const tick = this.scene.time.addEvent({
+      delay: 160,
+      loop: true,
+      callback: () => {
+        life -= 160;
+        this.waveManager.enemies.getChildren().forEach((enemy) => {
+          if (!enemy.active || enemy.isDying) return;
+          const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+          if (d < 40 + (enemy.enemyData?.radius || 14)) {
+            if (!hit.has(enemy) || life % 480 < 160) {
+              hit.add(enemy);
+              this.hitEnemy(enemy, 7, { fromCloud: true });
+              enemy.applyBurn?.(this.scene.time.now, 4, 1600);
+            }
+          }
+        });
+        if (life <= 0) {
+          tick.remove(false);
+          fx?.release(pool);
+          fx?.release(glow);
+          this.activeScorchedPools = Math.max(0, this.activeScorchedPools - 1);
+        }
+      },
+    });
+  }
+
+  spawnCinderRing(x, y) {
+    const fx = this.scene.fx;
+    fx?.flash(x, y, 20, 0xffaa44, 220, 70);
+    fx?.burst(x, y, { count: 10, color: 0xff6622, speed: 140, life: 280, size: 4 });
+    const ring = fx?.hold(x, y, 18, 0xff7722, 0.45, 8);
+    let radius = 18;
+    let pulses = 0;
+    const tick = this.scene.time.addEvent({
+      delay: 40,
+      repeat: 10,
+      callback: () => {
+        pulses += 1;
+        radius += 14;
+        if (ring?.active) ring.setRadius(radius);
+        this.waveManager.enemies.getChildren().forEach((enemy) => {
+          if (!enemy.active || enemy.isDying) return;
+          const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+          if (Math.abs(d - radius) < 22) {
+            this.hitEnemy(enemy, 10, { fromCloud: true });
+            enemy.applyBurn?.(this.scene.time.now, 3, 1400);
+          }
+        });
+        if (pulses >= 10) {
+          fx?.release(ring);
+        }
+      },
+    });
+  }
+
+  fireMagmaPulse() {
+    const x = this.player.x;
+    const y = this.player.y;
+    const radius = 130;
+    this.scene.fx?.flash(x, y, 30, 0xff5522, 240, 80);
+    this.scene.fx?.burst(x, y, { count: 12, color: 0xff4400, speed: 160, life: 300, size: 5 });
+    this.waveManager.enemies.getChildren().forEach((enemy) => {
+      if (!enemy.active || enemy.isDying) return;
+      const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+      if (d <= radius + (enemy.enemyData?.radius || 14)) {
+        this.hitEnemy(enemy, 28, { fromCloud: true });
+        enemy.applyBurn?.(this.scene.time.now, 5, 2200);
+      }
+    });
   }
 
   spawnEmber(x, y) {

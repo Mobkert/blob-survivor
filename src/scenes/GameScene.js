@@ -16,9 +16,8 @@ import { CombatSystem } from '../systems/CombatSystem.js';
 import { FxPool } from '../systems/FxPool.js';
 import { Music } from '../systems/MusicManager.js';
 import { getLevel } from '../data/levels.js';
-import { addCoins } from '../data/meta.js';
-
-const LEVEL_CLEAR_REWARD = 1200;
+import { addCoins, addDiamonds, markLevelComplete } from '../data/meta.js';
+import { getPowerup } from '../data/powerups.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -28,6 +27,7 @@ export class GameScene extends Phaser.Scene {
   init(data = {}) {
     this.levelId = data.levelId || 'plains';
     this.levelData = getLevel(this.levelId);
+    this.continueCarry = data.continueCarry || null;
   }
 
   create() {
@@ -118,13 +118,16 @@ export class GameScene extends Phaser.Scene {
   buildArena() {
     const half = this.arenaSize / 2;
     const tiles = Math.ceil(this.arenaSize / TILE_SIZE);
+    const prefix = this.levelData?.tilePrefix || 'tile_';
+    const bg = this.levelData?.bgColor ?? 0x1a2a14;
+    this.cameras.main.setBackgroundColor(bg);
 
     for (let row = 0; row < tiles; row++) {
       for (let col = 0; col < tiles; col++) {
         const x = -half + col * TILE_SIZE + TILE_SIZE / 2;
         const y = -half + row * TILE_SIZE + TILE_SIZE / 2;
         const variant = (row + col) % 5;
-        this.add.image(x, y, `tile_${variant}`).setDepth(0);
+        this.add.image(x, y, `${prefix}${variant}`).setDepth(0);
       }
     }
 
@@ -147,7 +150,45 @@ export class GameScene extends Phaser.Scene {
     this.player.respawn(0, 0);
     this.combatSystem.clearOrbs();
     this.events.emit('hud-update', { lives: this.lives, reset: true });
+
+    const carry = this.continueCarry;
+    this.continueCarry = null;
+
+    if (carry?.weapon || (carry?.cardIds && carry.cardIds.length > 0)) {
+      this.applyContinueLoadout(carry);
+      this.waveManager.startWave(1);
+      this.gameState = 'playing';
+      this.player.syncStats();
+      this.events.emit('hud-update');
+      return;
+    }
+
     await this.showWeaponPickAndStartWave(1);
+  }
+
+  applyContinueLoadout(carry) {
+    if (carry.weapon) {
+      this.playerState.weapon = { ...carry.weapon };
+    }
+
+    const ids = Array.isArray(carry.cardIds) ? carry.cardIds : [];
+    ids.forEach((id) => {
+      const card = getPowerup(id);
+      if (!card?.apply) return;
+      card.apply(this.playerState);
+      this.playerState.runPowerups.push(id);
+      if (card.id === 'maxHp' || card.id === 'turtle' || card.id === 'bulwark' || card.id === 'tank') {
+        // HP granted after sync below
+      }
+      if (card.category === 'attack') {
+        this.player.attackCooldownEnd = 0;
+      }
+    });
+
+    this.player.syncStats();
+    this.player.hp = this.player.maxHp;
+    this.player.maxHp = getMaxHp(this.playerState);
+    this.player.hp = this.player.maxHp;
   }
 
   async showWeaponPickAndStartWave(waveNumber) {
@@ -193,14 +234,22 @@ export class GameScene extends Phaser.Scene {
         this.gameState = 'victory';
         this.isUserPaused = false;
         this.physics.pause();
-        addCoins(LEVEL_CLEAR_REWARD);
-        this.events.emit('coins-collected', LEVEL_CLEAR_REWARD);
+        const goldReward = this.levelData?.clearGold ?? 1200;
+        const diamondReward = this.levelData?.clearDiamonds ?? 0;
+        addCoins(goldReward);
+        if (diamondReward > 0) addDiamonds(diamondReward);
+        markLevelComplete(this.levelId);
+        this.events.emit('coins-collected', goldReward);
         this.events.emit('level-complete', {
           wave,
           levelId: this.levelId,
           levelName: this.levelData?.name || 'Level',
           playerLevel: this.playerState.level,
-          goldReward: LEVEL_CLEAR_REWARD,
+          goldReward,
+          diamondReward,
+          canContinue: this.levelId === 'plains',
+          continueWeapon: this.playerState.weapon ? { ...this.playerState.weapon } : null,
+          continueCards: [...(this.playerState.runPowerups || [])],
         });
         return;
       }

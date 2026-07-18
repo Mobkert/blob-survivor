@@ -42,6 +42,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.throwableInFlight = false;
     this.externalVx = 0;
     this.externalVy = 0;
+    this.burnEndTime = 0;
+    this.burnTickTime = 0;
+    this.burnDamage = 0;
   }
 
   syncStats() {
@@ -136,8 +139,32 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  applyBurn(time, damage = 4, ms = 2200) {
+    this.burnEndTime = Math.max(this.burnEndTime || 0, time + ms);
+    this.burnDamage = Math.max(this.burnDamage || 0, damage);
+    if (!this.burnTickTime || this.burnTickTime < time) this.burnTickTime = time;
+  }
+
+  tickBurn(time) {
+    if (time >= this.burnEndTime) return;
+    if (time < this.burnTickTime) return;
+    this.burnTickTime = time + 500;
+    if (this.hp <= 0 || this.shieldActive) return;
+    const scaled = Math.max(0, this.burnDamage * (this.playerState.damageTakenMultiplier || 1));
+    this.hp = Math.max(0, this.hp - scaled);
+    this.setTint(0xff5522);
+    this.scene.time.delayedCall(80, () => {
+      if (this.active && time < this.burnEndTime) this.setTint(0xff7744);
+      else if (this.active) this.clearTint();
+    });
+    if (this.hp <= 0) {
+      this.scene.events.emit('player-died');
+    }
+  }
+
   update(time, cursors, pointer) {
     this.syncStats();
+    this.tickBurn(time);
 
     const speed = getMoveSpeed(this.playerState, time);
     let vx = 0;

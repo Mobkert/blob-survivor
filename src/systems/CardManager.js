@@ -64,6 +64,8 @@ export class CardManager {
       this.playerState.weapon = { ...card };
     } else if (card.apply) {
       card.apply(this.playerState);
+      if (!this.playerState.runPowerups) this.playerState.runPowerups = [];
+      this.playerState.runPowerups.push(card.id);
       this.applyPowerupEffects(card);
     }
 

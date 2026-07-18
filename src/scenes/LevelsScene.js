@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
-import { LevelList } from '../data/levels.js';
+import { LevelList, getLevelLockLabel, isLevelUnlocked } from '../data/levels.js';
+import { loadMeta } from '../data/meta.js';
 import { Music } from '../systems/MusicManager.js';
 
 export class LevelsScene extends Phaser.Scene {
@@ -10,6 +11,7 @@ export class LevelsScene extends Phaser.Scene {
 
   create() {
     Music.play('chill');
+    this.completedLevels = loadMeta().completedLevels || [];
     this.selectedId = 'plains';
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x142010);
@@ -57,23 +59,24 @@ export class LevelsScene extends Phaser.Scene {
   }
 
   createLevelCard(x, y, w, h, level) {
-    const locked = !level.available;
+    const unlocked = isLevelUnlocked(level, this.completedLevels);
     const container = this.add.container(x, y);
 
     const bg = this.add
-      .rectangle(0, 0, w, h, locked ? 0x1a1a1a : 0x1a2e18, 1)
-      .setStrokeStyle(3, locked ? 0x555555 : level.accent);
+      .rectangle(0, 0, w, h, unlocked ? 0x1a2e18 : 0x1a1a1a, 1)
+      .setStrokeStyle(3, unlocked ? level.accent : 0x555555);
 
+    const iconKey = unlocked || level.id === 'volcanic' ? level.icon : 'level_icon_locked';
     const icon = this.add
-      .image(0, -28, level.icon)
+      .image(0, -28, this.textures.exists(iconKey) ? iconKey : 'level_icon_locked')
       .setDisplaySize(72, 72)
-      .setAlpha(locked ? 0.45 : 1);
+      .setAlpha(unlocked ? 1 : 0.45);
 
     const name = this.add
       .text(0, 36, level.name, {
         fontFamily: 'Arial',
         fontSize: '16px',
-        color: locked ? '#888888' : '#e8ffe8',
+        color: unlocked ? '#e8ffe8' : '#888888',
         fontStyle: 'bold',
         align: 'center',
         wordWrap: { width: w - 16 },
@@ -81,10 +84,10 @@ export class LevelsScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const badge = this.add
-      .text(0, 58, locked ? 'COMING SOON' : 'AVAILABLE', {
+      .text(0, 58, getLevelLockLabel(level, this.completedLevels), {
         fontFamily: 'Arial',
         fontSize: '11px',
-        color: locked ? '#999999' : '#88cc88',
+        color: unlocked ? '#88cc88' : '#999999',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
@@ -92,8 +95,9 @@ export class LevelsScene extends Phaser.Scene {
     container.add([bg, icon, name, badge]);
     container.setData('levelId', level.id);
     container.setData('bg', bg);
+    container.setData('unlocked', unlocked);
 
-    if (!locked) {
+    if (unlocked) {
       bg.setInteractive({ useHandCursor: true });
       bg.on('pointerover', () => {
         if (this.selectedId !== level.id) bg.setFillStyle(0x243824);
@@ -152,35 +156,44 @@ export class LevelsScene extends Phaser.Scene {
 
   refreshSelection() {
     const selected = LevelList.find((l) => l.id === this.selectedId) || LevelList[0];
+    const selectedUnlocked = isLevelUnlocked(selected, this.completedLevels);
 
     this.cardNodes.forEach((card) => {
       const id = card.getData('levelId');
       const bg = card.getData('bg');
       const level = LevelList.find((l) => l.id === id);
-      if (!level?.available) {
+      const unlocked = isLevelUnlocked(level, this.completedLevels);
+      if (!unlocked) {
         bg.setFillStyle(0x1a1a1a);
         bg.setStrokeStyle(3, 0x555555);
         return;
       }
       if (id === this.selectedId) {
-        bg.setFillStyle(0x2a4a28);
-        bg.setStrokeStyle(3, 0xaaff88);
+        bg.setFillStyle(level.id === 'volcanic' ? 0x4a2218 : 0x2a4a28);
+        bg.setStrokeStyle(3, level.id === 'volcanic' ? 0xff8866 : 0xaaff88);
       } else {
-        bg.setFillStyle(0x1a2e18);
+        bg.setFillStyle(level.id === 'volcanic' ? 0x2a1810 : 0x1a2e18);
         bg.setStrokeStyle(3, level.accent);
       }
     });
 
     this.detailName.setText(selected.name);
-    this.detailDesc.setText(
-      selected.available
-        ? `${selected.description}  ·  ${selected.maxWaves} waves`
-        : selected.description,
-    );
+    if (selectedUnlocked) {
+      const rewardBits = [];
+      if (selected.clearGold) rewardBits.push(`+${selected.clearGold} gold`);
+      if (selected.clearDiamonds) rewardBits.push(`+${selected.clearDiamonds} diamonds`);
+      const rewardText = rewardBits.length ? `  ·  Clear: ${rewardBits.join(', ')}` : '';
+      this.detailDesc.setText(`${selected.description}  ·  ${selected.maxWaves} waves${rewardText}`);
+    } else if (selected.unlockAfter === 'plains') {
+      this.detailDesc.setText('Complete Plains on this save slot to unlock Volcanic Ridge.');
+    } else {
+      this.detailDesc.setText(selected.description);
+    }
 
-    if (selected.available) {
-      this.playBtn.setFillStyle(0x2a5a28);
-      this.playBtn.setStrokeStyle(2, 0x66aa66);
+    if (selectedUnlocked) {
+      const volcanic = selected.id === 'volcanic';
+      this.playBtn.setFillStyle(volcanic ? 0x6a2818 : 0x2a5a28);
+      this.playBtn.setStrokeStyle(2, volcanic ? 0xcc6644 : 0x66aa66);
       this.playBtn.setInteractive({ useHandCursor: true });
       this.playText.setColor('#ffffff');
       this.playText.setText('Play');
@@ -189,13 +202,13 @@ export class LevelsScene extends Phaser.Scene {
       this.playBtn.setFillStyle(0x333333);
       this.playBtn.setStrokeStyle(2, 0x555555);
       this.playText.setColor('#777777');
-      this.playText.setText('Coming Soon');
+      this.playText.setText(selected.comingSoon ? 'Coming Soon' : 'Locked');
     }
   }
 
   startSelectedLevel() {
     const selected = LevelList.find((l) => l.id === this.selectedId);
-    if (!selected?.available) return;
+    if (!isLevelUnlocked(selected, this.completedLevels)) return;
 
     if (this.scene.isActive('UIScene')) {
       this.scene.stop('UIScene');
