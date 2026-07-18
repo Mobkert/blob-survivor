@@ -158,10 +158,11 @@ export class LevelsScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.multiplayerSubtext = this.add
-      .text(GAME_WIDTH / 2, 674, 'Host / Join', {
+      .text(GAME_WIDTH / 2, 674, 'VERY BUGGY in ALPHA !!!', {
         fontFamily: 'Arial',
-        fontSize: '13px',
-        color: '#99bbdd',
+        fontSize: '12px',
+        color: '#ffaa66',
+        fontStyle: 'bold',
       })
       .setOrigin(0.5);
 

@@ -7,7 +7,7 @@ import { rollEnemyCoinsForWave, getCoinReductionSteps } from '../data/enemies.js
 import { addCoins, isUnlocked, unlockShopItem } from '../data/meta.js';
 import { ShopItems } from '../data/shop.js';
 import { CardPickup } from '../entities/CardPickup.js';
-import { broadcastMeleeArc, grantCoopCoins } from './CoopNet.js';
+import { broadcastMeleeArc, grantCoopCoins, registerCoopVfx, unregisterCoopVfx } from './CoopNet.js';
 
 const MAX_EXPLOSION_DEPTH = 2;
 
@@ -437,6 +437,7 @@ export class CombatSystem {
     const radius = 52 + (stacks - 1) * 28;
     const duration = 2200 + (stacks - 1) * 400;
     const tickDamage = 3 + stacks * 2;
+    const vfxId = registerCoopVfx(this.scene, { kind: 'toxic', x, y, r: radius });
 
     const blobs = [];
     const blobCount = Math.min(4, 2 + stacks);
@@ -465,6 +466,7 @@ export class CombatSystem {
       this.activeToxicClouds = Math.max(0, this.activeToxicClouds - 1);
       blobs.forEach((b) => fx?.release(b));
       fx?.release(core);
+      unregisterCoopVfx(this.scene, vfxId);
     };
 
     const tick = this.scene.time.addEvent({
@@ -783,6 +785,7 @@ export class CombatSystem {
     const core = fx?.hold(x, y, 12, 0x220033, 0.9, 10);
     const ring = fx?.hold(x, y, 22, 0x6611aa, 0.28, 9);
     if (core) core.setStrokeStyle(3, 0xbb44ff, 0.95);
+    const vfxId = registerCoopVfx(this.scene, { kind: 'singularity', x, y, r: pullR });
 
     let life = 1200;
     const tick = this.scene.time.addEvent({
@@ -809,6 +812,7 @@ export class CombatSystem {
           tick.remove(false);
           fx?.release(core);
           fx?.release(ring);
+          unregisterCoopVfx(this.scene, vfxId);
           fx?.flash(x, y, 16, 0xaa44ff, 280, pullR * 0.7);
           this.createExplosion(x, y, damage * 1.35, 0, pullR * 0.85, {
             skipAirstrike: true,
@@ -1655,6 +1659,7 @@ export class CombatSystem {
     const fx = this.scene.fx;
     const pool = fx?.hold(x, y, 36, 0xff4400, 0.4, 5);
     const glow = fx?.hold(x, y, 22, 0xffaa33, 0.35, 6);
+    const vfxId = registerCoopVfx(this.scene, { kind: 'scorch', x, y, r: 36 });
     let life = 1800;
     const hit = new Set();
     const tick = this.scene.time.addEvent({
@@ -1677,6 +1682,7 @@ export class CombatSystem {
           tick.remove(false);
           fx?.release(pool);
           fx?.release(glow);
+          unregisterCoopVfx(this.scene, vfxId);
           this.activeScorchedPools = Math.max(0, this.activeScorchedPools - 1);
         }
       },

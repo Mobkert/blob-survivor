@@ -12,6 +12,7 @@ import { Wizard, isWizardType } from '../entities/Wizard.js';
 import { MagmaCube, isMagmaType } from '../entities/MagmaCube.js';
 import { GoblinKing } from '../entities/GoblinKing.js';
 import { KingMagmaCube } from '../entities/KingMagmaCube.js';
+import { snapshotCoopVfx, serializeBossTelegraph, applyGuestVfxZones, applyGuestEnemyTelegraph } from './CoopNet.js';
 
 export function initMultiplayerFlags(scene, data) {
   scene.mpConfig = data.multiplayer || null;
@@ -25,6 +26,8 @@ export function initMultiplayerFlags(scene, data) {
   scene.lastSnapshotAt = 0;
   scene.guestEnemyMap = new Map();
   scene.guestProjectileMap = new Map();
+  scene.guestVfxMap = new Map();
+  scene.coopVfx = new Map();
   scene._guestNetId = 1;
   scene._guestQPending = false;
 }
@@ -77,6 +80,7 @@ export function buildSnapshot(scene) {
       y: Math.round(enemy.y),
       hp: Math.ceil(enemy.hp),
       maxHp: enemy.maxHp,
+      telegraph: serializeBossTelegraph(enemy),
     });
   });
 
@@ -126,6 +130,7 @@ export function buildSnapshot(scene) {
     },
     enemies,
     projectiles,
+    zones: snapshotCoopVfx(scene),
   };
 }
 
@@ -253,13 +258,17 @@ export function applySnapshotOnGuest(scene, snap) {
     sprite.hp = e.hp;
     sprite.maxHp = e.maxHp;
     sprite.setVisible(true);
+    applyGuestEnemyTelegraph(sprite, e.telegraph || null);
   });
   scene.guestEnemyMap.forEach((sprite, id) => {
     if (!seen.has(id)) {
+      sprite._telegraphGfx?.destroy();
       sprite.destroy();
       scene.guestEnemyMap.delete(id);
     }
   });
+
+  applyGuestVfxZones(scene, snap.zones);
 
   // Sync projectiles (host + ally shots)
   const seenP = new Set();

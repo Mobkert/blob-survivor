@@ -41,7 +41,16 @@ export class MultiplayerLobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(GAME_WIDTH / 2, 100, `Level: ${getLevel(this.levelId).name}  ·  Co-op (shared HP & level)`, {
+      .text(GAME_WIDTH / 2, 98, 'VERY BUGGY in ALPHA ! ! !', {
+        fontFamily: 'Arial',
+        fontSize: '22px',
+        color: '#ff8844',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    this.add
+      .text(GAME_WIDTH / 2, 128, `Level: ${getLevel(this.levelId).name}  ·  Co-op (shared HP & level)`, {
         fontFamily: 'Arial',
         fontSize: '16px',
         color: '#aaccdd',
@@ -49,7 +58,7 @@ export class MultiplayerLobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.statusText = this.add
-      .text(GAME_WIDTH / 2, 150, 'Host a room or join with a code.', {
+      .text(GAME_WIDTH / 2, 168, 'Host a room or join with a code.', {
         fontFamily: 'Arial',
         fontSize: '18px',
         color: '#ccddee',
@@ -58,7 +67,7 @@ export class MultiplayerLobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.codeDisplay = this.add
-      .text(GAME_WIDTH / 2, 210, '', {
+      .text(GAME_WIDTH / 2, 228, '', {
         fontFamily: 'Arial',
         fontSize: '48px',
         color: '#ffffff',
@@ -67,7 +76,7 @@ export class MultiplayerLobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.errorText = this.add
-      .text(GAME_WIDTH / 2, 270, '', {
+      .text(GAME_WIDTH / 2, 288, '', {
         fontFamily: 'Arial',
         fontSize: '16px',
         color: '#ff8888',
@@ -76,8 +85,8 @@ export class MultiplayerLobbyScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.createButton(GAME_WIDTH / 2 - 140, 360, 240, 52, 0x2a5a9a, 'Host Game', () => this.startHost());
-    this.createButton(GAME_WIDTH / 2 + 140, 360, 240, 52, 0x2a6a7a, 'Join Game', () => this.showJoin());
+    this.createButton(GAME_WIDTH / 2 - 140, 380, 240, 52, 0x2a5a9a, 'Host Game', () => this.startHost());
+    this.createButton(GAME_WIDTH / 2 + 140, 380, 240, 52, 0x2a6a7a, 'Join Game', () => this.showJoin());
 
     this.joinPanel = this.add.container(GAME_WIDTH / 2, 480).setVisible(false);
     const joinBg = this.add.rectangle(0, 0, 420, 140, 0x1a2438, 0.95).setStrokeStyle(2, 0x6688cc);
