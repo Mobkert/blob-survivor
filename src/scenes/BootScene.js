@@ -8,7 +8,10 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     this.generateTextures();
-    this.scene.start('MenuScene');
+    this.scene.start('LoadingScene', {
+      durationMs: 6000,
+      nextScene: 'MenuScene',
+    });
   }
 
   generateTextures() {

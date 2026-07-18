@@ -68,6 +68,13 @@ export class GameScene extends Phaser.Scene {
       this.combatSystem.useAttackPowerup(this.input.activePointer);
     });
 
+    this.input.keyboard.on('keydown-ESC', () => {
+      this.togglePause();
+    });
+
+    this.isUserPaused = false;
+    this.stateBeforePause = null;
+
     this.events.on('xp-collected', (amount) => {
       const leveled = this.levelSystem.addXp(amount);
       this.events.emit('hud-update');
@@ -197,6 +204,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.lives <= 0) {
       this.gameState = 'game_over';
+      this.isUserPaused = false;
       this.physics.pause();
       this.events.emit('game-over', {
         wave: this.waveManager.currentWave,
@@ -213,8 +221,54 @@ export class GameScene extends Phaser.Scene {
     this.events.emit('hud-update');
   }
 
+  togglePause() {
+    if (this.isUserPaused) this.unpauseGame();
+    else this.pauseGame();
+  }
+
+  pauseGame() {
+    if (this.isUserPaused) return;
+    if (this.isPausedForCard) return;
+    if (this.gameState === 'game_over' || this.gameState === 'weapon_pick' || this.gameState === 'level_up') {
+      return;
+    }
+    if (this.gameState !== 'playing' && this.gameState !== 'wave_pause') return;
+
+    this.isUserPaused = true;
+    this.stateBeforePause = this.gameState;
+    this.gameState = 'paused';
+    this.physics.pause();
+    this.events.emit('game-paused');
+  }
+
+  unpauseGame() {
+    if (!this.isUserPaused) return;
+    this.isUserPaused = false;
+    this.gameState = this.stateBeforePause || 'playing';
+    this.stateBeforePause = null;
+    this.physics.resume();
+    this.events.emit('game-unpaused');
+  }
+
+  returnToMenuFromPause() {
+    this.isUserPaused = false;
+    this.stateBeforePause = null;
+    try {
+      this.physics.resume();
+    } catch {
+      // ignore
+    }
+    this.scene.stop('UIScene');
+    this.scene.start('MenuScene');
+  }
+
   update(time) {
-    if (this.gameState === 'weapon_pick' || this.gameState === 'level_up' || this.gameState === 'game_over') {
+    if (
+      this.gameState === 'weapon_pick' ||
+      this.gameState === 'level_up' ||
+      this.gameState === 'game_over' ||
+      this.gameState === 'paused'
+    ) {
       return;
     }
 

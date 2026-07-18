@@ -59,13 +59,16 @@ export class UIScene extends Phaser.Scene {
 
     this.lifeIcons = [];
     for (let i = 0; i < 3; i++) {
-      const heart = this.add.text(1180 - i * 28, 20, '♥', {
+      const heart = this.add.text(1140 - i * 28, 20, '♥', {
         fontFamily: 'Arial',
         fontSize: '28px',
         color: '#ff4466',
       }).setScrollFactor(0).setDepth(102);
       this.lifeIcons.push(heart);
     }
+
+    this.createPauseButton();
+    this.createPauseMenu();
 
     this.gameOverGroup = this.add.container(640, 360).setScrollFactor(0).setDepth(300).setVisible(false);
     const goBg = this.add.rectangle(0, 0, 480, 280, 0x111811, 0.95).setStrokeStyle(2, 0x66aa66);
@@ -116,6 +119,97 @@ export class UIScene extends Phaser.Scene {
       this.bossMessage.setText('The Goblin King is stunned!');
       this.bossMessage.setColor('#88ccff');
     });
+    this.gameScene.events.on('game-paused', () => this.showPauseMenu());
+    this.gameScene.events.on('game-unpaused', () => this.hidePauseMenu());
+  }
+
+  createPauseButton() {
+    this.pauseBtn = this.add
+      .rectangle(1225, 34, 88, 36, 0x2a3a48)
+      .setStrokeStyle(2, 0x88aacc)
+      .setScrollFactor(0)
+      .setDepth(110)
+      .setInteractive({ useHandCursor: true });
+    this.pauseBtnLabel = this.add
+      .text(1225, 34, 'Pause', {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: '#d8e8ff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(111);
+
+    this.pauseBtn.on('pointerover', () => this.pauseBtn.setFillStyle(0x3a5060));
+    this.pauseBtn.on('pointerout', () => this.pauseBtn.setFillStyle(0x2a3a48));
+    this.pauseBtn.on('pointerdown', () => {
+      this.gameScene?.togglePause?.();
+    });
+  }
+
+  createPauseMenu() {
+    this.pauseMenuGroup = this.add.container(640, 360).setScrollFactor(0).setDepth(400).setVisible(false);
+
+    const dim = this.add.rectangle(0, 0, 1280, 720, 0x000000, 0.65);
+    const panel = this.add.rectangle(0, 0, 420, 260, 0x111811, 0.96).setStrokeStyle(2, 0x66aa66);
+    const title = this.add
+      .text(0, -70, 'Game Pause', {
+        fontFamily: 'Arial',
+        fontSize: '40px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    const unpauseBtn = this.add
+      .rectangle(0, 10, 220, 48, 0x2a5a28)
+      .setStrokeStyle(2, 0x66aa66)
+      .setInteractive({ useHandCursor: true });
+    const unpauseText = this.add
+      .text(0, 10, 'Unpause', {
+        fontFamily: 'Arial',
+        fontSize: '22px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    const menuBtn = this.add
+      .rectangle(0, 80, 220, 48, 0x3a3a28)
+      .setStrokeStyle(2, 0xaaaa66)
+      .setInteractive({ useHandCursor: true });
+    const menuText = this.add
+      .text(0, 80, 'Return to Menu', {
+        fontFamily: 'Arial',
+        fontSize: '20px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    unpauseBtn.on('pointerover', () => unpauseBtn.setFillStyle(0x3a7a38));
+    unpauseBtn.on('pointerout', () => unpauseBtn.setFillStyle(0x2a5a28));
+    unpauseBtn.on('pointerdown', () => this.gameScene?.unpauseGame?.());
+
+    menuBtn.on('pointerover', () => menuBtn.setFillStyle(0x5a5a38));
+    menuBtn.on('pointerout', () => menuBtn.setFillStyle(0x3a3a28));
+    menuBtn.on('pointerdown', () => {
+      this.hidePauseMenu();
+      this.hideCardPick();
+      this.gameScene?.returnToMenuFromPause?.();
+    });
+
+    this.pauseMenuGroup.add([dim, panel, title, unpauseBtn, unpauseText, menuBtn, menuText]);
+  }
+
+  showPauseMenu() {
+    if (this.gameOverGroup.visible) return;
+    this.pauseMenuGroup.setVisible(true);
+  }
+
+  hidePauseMenu() {
+    this.pauseMenuGroup.setVisible(false);
   }
 
   showBossBar(boss) {
@@ -315,12 +409,14 @@ export class UIScene extends Phaser.Scene {
   }
 
   showGameOver(data) {
+    this.hidePauseMenu();
     this.gameOverStats.setText(`Reached Wave ${data.wave}\nLevel ${data.level}\nCoins banked: ${loadMeta().coins}`);
     this.gameOverGroup.setVisible(true);
   }
 
   update() {
     if (this.gameScene?.gameState === 'game_over') return;
+    if (this.gameScene?.gameState === 'paused') return;
     this.refreshHud();
   }
 }

@@ -37,8 +37,11 @@ export class MenuScene extends Phaser.Scene {
       if (this.scene.isActive('UIScene')) {
         this.scene.stop('UIScene');
       }
-      this.scene.launch('UIScene');
-      this.scene.start('GameScene');
+      this.scene.start('LoadingScene', {
+        durationMs: 3000,
+        nextScene: 'GameScene',
+        launchScenes: ['UIScene'],
+      });
     });
 
     this.createButton(width / 2, height * 0.48, 'Shop', () => {

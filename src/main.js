@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene.js';
+import { LoadingScene } from './scenes/LoadingScene.js';
 import { MenuScene } from './scenes/MenuScene.js';
 import { ShopScene } from './scenes/ShopScene.js';
 import { DeckScene } from './scenes/DeckScene.js';
@@ -22,7 +23,17 @@ const config = {
       debug: false,
     },
   },
-  scene: [BootScene, MenuScene, ShopScene, DeckScene, DiamondsScene, SavesScene, GameScene, UIScene],
+  scene: [
+    BootScene,
+    LoadingScene,
+    MenuScene,
+    ShopScene,
+    DeckScene,
+    DiamondsScene,
+    SavesScene,
+    GameScene,
+    UIScene,
+  ],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
