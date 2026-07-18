@@ -7,6 +7,7 @@ import { rollEnemyCoinsForWave, getCoinReductionSteps } from '../data/enemies.js
 import { addCoins, isUnlocked, unlockShopItem } from '../data/meta.js';
 import { ShopItems } from '../data/shop.js';
 import { CardPickup } from '../entities/CardPickup.js';
+import { broadcastMeleeArc, grantCoopCoins } from './CoopNet.js';
 
 const MAX_EXPLOSION_DEPTH = 2;
 
@@ -147,8 +148,11 @@ export class CombatSystem {
         ? Math.floor(this.playerState.shieldCoins / 2)
         : this.playerState.shieldCoins;
       if (coins > 0) {
-        addCoins(coins);
-        this.scene.events.emit('coins-collected', coins);
+        if (this.scene.isMultiplayer) grantCoopCoins(this.scene, coins);
+        else {
+          addCoins(coins);
+          this.scene.events.emit('coins-collected', coins);
+        }
       }
     }
 
@@ -825,14 +829,19 @@ export class CombatSystem {
 
   collectCoin(orb) {
     const value = this.scene.isMultiplayer ? Math.floor(orb.value / 2) : orb.value;
-    if (value > 0) addCoins(value);
+    if (value > 0) {
+      if (this.scene.isMultiplayer) grantCoopCoins(this.scene, value);
+      else {
+        addCoins(value);
+        this.scene.events.emit('coins-collected', value);
+      }
+    }
     if (this.playerState.healOnCoin > 0) {
       this.player.heal(this.playerState.healOnCoin);
     }
     if (this.playerState.coinNova) {
       this.coinNovaBlast();
     }
-    this.scene.events.emit('coins-collected', value);
     orb.destroy();
   }
 
@@ -1302,6 +1311,14 @@ export class CombatSystem {
     gfx.fillPath();
     gfx.strokePath();
     this.scene.time.delayedCall(100, () => gfx.destroy());
+    broadcastMeleeArc(
+      this.scene,
+      this.player.x,
+      this.player.y,
+      angle,
+      weapon.range,
+      weapon.arcDegrees,
+    );
   }
 
   performBig(targetX, targetY, angle, weapon) {

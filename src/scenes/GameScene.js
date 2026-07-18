@@ -30,6 +30,12 @@ import {
   applySnapshotOnGuest,
   syncAllyWeaponVisual,
 } from '../systems/CoopHelpers.js';
+import {
+  wireFxNetworking,
+  playNetFx,
+  grantCoopCoins,
+  updateGuestInterp,
+} from '../systems/CoopNet.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -73,6 +79,18 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.mpRole === 'guest' && msg.type === 'snapshot') {
       applySnapshotOnGuest(this, msg);
+      return;
+    }
+    if (this.mpRole === 'guest' && msg.type === 'fx') {
+      playNetFx(this, msg);
+      return;
+    }
+    if (this.mpRole === 'guest' && msg.type === 'coins') {
+      const amount = Math.max(0, Math.floor(msg.amount || 0));
+      if (amount > 0) {
+        addCoins(amount);
+        this.events.emit('coins-collected', amount);
+      }
       return;
     }
     if (msg.type === 'weapon_pick' && this.mpRole === 'guest') {
@@ -195,6 +213,7 @@ export class GameScene extends Phaser.Scene {
 
     this.buildArena();
     this.fx = new FxPool(this);
+    wireFxNetworking(this);
 
     this.player = new Player(this, 0, 0, this.playerState);
     this.player.hp = getMaxHp(this.playerState);
@@ -432,10 +451,14 @@ export class GameScene extends Phaser.Scene {
         const goldReward = this.levelData?.clearGold ?? 1200;
         const diamondReward = this.levelData?.clearDiamonds ?? 0;
         const grantedGold = this.isMultiplayer ? Math.floor(goldReward / 2) : goldReward;
-        addCoins(grantedGold);
+        if (this.isMultiplayer) {
+          grantCoopCoins(this, grantedGold);
+        } else {
+          addCoins(grantedGold);
+          this.events.emit('coins-collected', grantedGold);
+        }
         if (diamondReward > 0) addDiamonds(diamondReward);
         markLevelComplete(this.levelId);
-        this.events.emit('coins-collected', grantedGold);
         this.events.emit('level-complete', {
           wave,
           levelId: this.levelId,
@@ -554,6 +577,7 @@ export class GameScene extends Phaser.Scene {
       this.net?.send(collectLocalInput(this));
       // Soft local move for responsiveness; host snapshot corrects.
       this.player.update(time, this.cursors, this.input.activePointer);
+      updateGuestInterp(this);
       return;
     }
 

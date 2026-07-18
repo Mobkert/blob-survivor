@@ -210,7 +210,13 @@ export function applySnapshotOnGuest(scene, snap) {
   } else {
     scene.player.setPosition(scene.player.x + dx * 0.35, scene.player.y + dy * 0.35);
   }
-  scene.ally.setPosition(snap.host.x, snap.host.y);
+  const hx = snap.host.x;
+  const hy = snap.host.y;
+  if (scene.ally._tx == null || Math.hypot(hx - scene.ally.x, hy - scene.ally.y) > 64) {
+    scene.ally.setPosition(hx, hy);
+  }
+  scene.ally._tx = hx;
+  scene.ally._ty = hy;
   scene.player.aimX = snap.guest.aimX;
   scene.player.aimY = snap.guest.aimY;
   scene.ally.aimX = snap.host.aimX;
@@ -232,7 +238,7 @@ export function applySnapshotOnGuest(scene, snap) {
   scene.ally.shieldSprite?.setVisible(scene.ally.shieldActive);
   scene.ally.shieldSprite?.setPosition(scene.ally.x, scene.ally.y);
 
-  // Sync enemy visuals
+  // Sync enemy visuals (lerp toward targets each frame)
   const seen = new Set();
   (snap.enemies || []).forEach((e) => {
     seen.add(e.id);
@@ -240,8 +246,10 @@ export function applySnapshotOnGuest(scene, snap) {
     if (!sprite || !sprite.active) {
       sprite = spawnGuestEnemy(scene, e);
       scene.guestEnemyMap.set(e.id, sprite);
+      sprite.setPosition(e.x, e.y);
     }
-    sprite.setPosition(e.x, e.y);
+    sprite._tx = e.x;
+    sprite._ty = e.y;
     sprite.hp = e.hp;
     sprite.maxHp = e.maxHp;
     sprite.setVisible(true);
@@ -261,9 +269,11 @@ export function applySnapshotOnGuest(scene, snap) {
     if (!sprite || !sprite.active) {
       sprite = scene.add.image(p.x, p.y, 'projectile').setDepth(8);
       scene.guestProjectileMap.set(p.id, sprite);
+      sprite.setPosition(p.x, p.y);
     }
-    sprite.setPosition(p.x, p.y);
-    sprite.setRotation(p.r || 0);
+    sprite._tx = p.x;
+    sprite._ty = p.y;
+    sprite._tr = p.r || 0;
     sprite.setVisible(true);
   });
   scene.guestProjectileMap.forEach((sprite, id) => {
