@@ -14,19 +14,31 @@ import { LevelSystem } from '../systems/LevelSystem.js';
 import { CardManager } from '../systems/CardManager.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { FxPool } from '../systems/FxPool.js';
+import { Music } from '../systems/MusicManager.js';
+import { getLevel } from '../data/levels.js';
+import { addCoins } from '../data/meta.js';
+
+const LEVEL_CLEAR_REWARD = 1200;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
   }
 
+  init(data = {}) {
+    this.levelId = data.levelId || 'plains';
+    this.levelData = getLevel(this.levelId);
+  }
+
   create() {
+    Music.stop();
     this.arenaSize = ARENA_SIZE;
     this.playerState = createPlayerState();
     this.lives = PLAYER_LIVES;
     this.gameState = 'weapon_pick';
     this.isPausedForCard = false;
     this.waveTransitionLock = false;
+    if (!this.levelData) this.levelData = getLevel(this.levelId || 'plains');
 
     this.buildArena();
     this.fx = new FxPool(this);
@@ -176,6 +188,23 @@ export class GameScene extends Phaser.Scene {
       this.gameState = 'wave_pause';
       this.events.emit('hud-update');
 
+      const maxWaves = this.levelData?.maxWaves || 21;
+      if (wave >= maxWaves) {
+        this.gameState = 'victory';
+        this.isUserPaused = false;
+        this.physics.pause();
+        addCoins(LEVEL_CLEAR_REWARD);
+        this.events.emit('coins-collected', LEVEL_CLEAR_REWARD);
+        this.events.emit('level-complete', {
+          wave,
+          levelId: this.levelId,
+          levelName: this.levelData?.name || 'Level',
+          playerLevel: this.playerState.level,
+          goldReward: LEVEL_CLEAR_REWARD,
+        });
+        return;
+      }
+
       await new Promise((resolve) => {
         this.time.delayedCall(WAVE_PAUSE_MS, resolve);
       });
@@ -229,7 +258,7 @@ export class GameScene extends Phaser.Scene {
   pauseGame() {
     if (this.isUserPaused) return;
     if (this.isPausedForCard) return;
-    if (this.gameState === 'game_over' || this.gameState === 'weapon_pick' || this.gameState === 'level_up') {
+    if (this.gameState === 'game_over' || this.gameState === 'victory' || this.gameState === 'weapon_pick' || this.gameState === 'level_up') {
       return;
     }
     if (this.gameState !== 'playing' && this.gameState !== 'wave_pause') return;
@@ -267,6 +296,7 @@ export class GameScene extends Phaser.Scene {
       this.gameState === 'weapon_pick' ||
       this.gameState === 'level_up' ||
       this.gameState === 'game_over' ||
+      this.gameState === 'victory' ||
       this.gameState === 'paused'
     ) {
       return;

@@ -82,22 +82,25 @@ export class UIScene extends Phaser.Scene {
     retryBtn.on('pointerdown', () => {
       this.gameOverGroup.setVisible(false);
       this.hideCardPick();
+      const levelId = this.gameScene?.levelId || 'plains';
       this.scene.stop('GameScene');
       this.scene.stop('UIScene');
       this.scene.launch('UIScene');
-      this.scene.start('GameScene');
+      this.scene.start('GameScene', { levelId });
     });
     menuBtn.on('pointerdown', () => {
       this.gameOverGroup.setVisible(false);
       this.hideCardPick();
       this.scene.stop('GameScene');
       this.scene.stop('UIScene');
-      this.scene.start('MenuScene');
+      this.scene.start('LevelsScene');
     });
     this.gameOverGroup.add([goBg, this.gameOverTitle, this.gameOverStats, retryBtn, retryText, menuBtn, menuText]);
+    this.menuBtnLabel = menuText;
 
     this.gameScene.events.on('hud-update', () => this.refreshHud());
     this.gameScene.events.on('game-over', (data) => this.showGameOver(data));
+    this.gameScene.events.on('level-complete', (data) => this.showVictory(data));
     this.gameScene.events.on('coins-collected', (amount) => {
       this.runCoins += amount;
       this.refreshHud();
@@ -359,14 +362,16 @@ export class UIScene extends Phaser.Scene {
     const hpRatio = Math.max(0, player.hp / player.maxHp);
     this.hpBar.width = 200 * hpRatio;
     this.hpBar.fillColor = hpRatio > 0.5 ? 0x44cc66 : hpRatio > 0.25 ? 0xcccc44 : 0xcc4444;
-    this.hpText.setText(`HP ${Math.ceil(player.hp)} / ${player.maxHp}`);
+    this.hpText.setText(`HP ${Math.max(0, Math.ceil(player.hp))} / ${player.maxHp}`);
 
     const needed = xpToNextLevel(state.level);
     const xpRatio = state.xp / needed;
     this.xpBar.width = 200 * xpRatio;
     this.levelText.setText(`Lv ${state.level}`);
 
-    this.waveText.setText(`Wave ${gs.waveManager?.currentWave || 1}`);
+    this.waveText.setText(
+      `Wave ${gs.waveManager?.currentWave || 1}/${gs.levelData?.maxWaves || 21}`,
+    );
 
     const weaponName = state.weapon ? state.weapon.name : 'None';
     this.weaponText.setText(`Weapon: ${weaponName}`);
@@ -410,12 +415,27 @@ export class UIScene extends Phaser.Scene {
 
   showGameOver(data) {
     this.hidePauseMenu();
+    this.gameOverTitle.setText('Game Over');
+    this.gameOverTitle.setColor('#ff6666');
+    this.menuBtnLabel?.setText('Levels');
     this.gameOverStats.setText(`Reached Wave ${data.wave}\nLevel ${data.level}\nCoins banked: ${loadMeta().coins}`);
+    this.gameOverGroup.setVisible(true);
+  }
+
+  showVictory(data) {
+    this.hidePauseMenu();
+    this.gameOverTitle.setText('Level Complete!');
+    this.gameOverTitle.setColor('#88ff88');
+    this.menuBtnLabel?.setText('Levels');
+    this.gameOverStats.setText(
+      `${data.levelName || 'Level'} cleared!\n+${data.goldReward || 1200} gold\nSurvived ${data.wave} waves\nPlayer level ${data.playerLevel}\nCoins banked: ${loadMeta().coins}`,
+    );
     this.gameOverGroup.setVisible(true);
   }
 
   update() {
     if (this.gameScene?.gameState === 'game_over') return;
+    if (this.gameScene?.gameState === 'victory') return;
     if (this.gameScene?.gameState === 'paused') return;
     this.refreshHud();
   }

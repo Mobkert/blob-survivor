@@ -6,6 +6,7 @@ import { ShopScene } from './scenes/ShopScene.js';
 import { DeckScene } from './scenes/DeckScene.js';
 import { DiamondsScene } from './scenes/DiamondsScene.js';
 import { SavesScene } from './scenes/SavesScene.js';
+import { LevelsScene } from './scenes/LevelsScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { UIScene } from './scenes/UIScene.js';
 import { GAME_WIDTH, GAME_HEIGHT } from './data/constants.js';
@@ -27,6 +28,7 @@ const config = {
     BootScene,
     LoadingScene,
     MenuScene,
+    LevelsScene,
     ShopScene,
     DeckScene,
     DiamondsScene,

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
+import { Music, bindMusicUnlock } from '../systems/MusicManager.js';
 
 /** Loading art is 1024x576 (same 16:9 as the game). */
 const ART_W = 1024;
@@ -17,6 +18,7 @@ export class LoadingScene extends Phaser.Scene {
     this.durationMs = Number(data.durationMs) > 0 ? Number(data.durationMs) : 6000;
     this.nextScene = data.nextScene || 'MenuScene';
     this.launchScenes = Array.isArray(data.launchScenes) ? data.launchScenes : [];
+    this.levelId = data.levelId || 'plains';
   }
 
   preload() {
@@ -29,6 +31,9 @@ export class LoadingScene extends Phaser.Scene {
   }
 
   create() {
+    bindMusicUnlock(this);
+    Music.play('chill');
+
     const scaleX = GAME_WIDTH / ART_W;
     const scaleY = GAME_HEIGHT / ART_H;
 
@@ -73,6 +78,6 @@ export class LoadingScene extends Phaser.Scene {
         this.scene.launch(key);
       }
     });
-    this.scene.start(this.nextScene);
+    this.scene.start(this.nextScene, { levelId: this.levelId });
   }
 }

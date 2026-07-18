@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { getEnemyData, getScaledEnemyHp } from '../data/enemies.js';
+import { getEnemyData, getScaledEnemyHp, getScaledBossHp } from '../data/enemies.js';
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   /**
@@ -18,7 +18,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.enemyData = data;
     this.typeId = typeId;
     this.wave = wave;
-    this.maxHp = getScaledEnemyHp(data.hp, wave);
+    this.maxHp = data.isBoss
+      ? getScaledBossHp(data.hp, wave)
+      : getScaledEnemyHp(data.hp, wave);
     this.hp = this.maxHp;
     this.contactDamage = data.contactDamage;
     this.xpValue = data.xp;

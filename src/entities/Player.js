@@ -47,6 +47,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   syncStats() {
     this.maxHp = getMaxHp(this.playerState);
     if (this.hp > this.maxHp) this.hp = this.maxHp;
+    if (this.hp < 0) this.hp = 0;
   }
 
   clampAimPoint(x, y, maxRange = BOMB_PLACE_RANGE) {
@@ -232,6 +233,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   takeDamage(amount, time) {
+    if (this.hp <= 0) return false;
     if (this.shieldActive) return false;
     if (time < this.invulnerableUntil) return false;
 
@@ -247,8 +249,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.playerState.rampageStacks = 0;
     }
 
-    const scaled = amount * this.playerState.damageTakenMultiplier;
-    this.hp -= scaled;
+    const scaled = Math.max(0, amount * this.playerState.damageTakenMultiplier);
+    this.hp = Math.max(0, this.hp - scaled);
 
     if (this.hp <= 0 && this.playerState.secondWind && !this.playerState.secondWindUsed) {
       this.playerState.secondWindUsed = true;
@@ -268,7 +270,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   heal(amount) {
-    this.hp = Math.min(this.maxHp, this.hp + amount);
+    if (amount <= 0) return;
+    this.hp = Math.min(this.maxHp, Math.max(0, this.hp) + amount);
   }
 
   isDead() {

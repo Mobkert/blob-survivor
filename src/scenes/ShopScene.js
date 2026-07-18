@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
 import { getShopOffers, SHOP_OFFER_COUNT, isPremiumShopCard } from '../data/shop.js';
 import { loadMeta, saveMeta } from '../data/meta.js';
+import { Music } from '../systems/MusicManager.js';
 
 export class ShopScene extends Phaser.Scene {
   constructor() {
@@ -9,6 +10,7 @@ export class ShopScene extends Phaser.Scene {
   }
 
   create() {
+    Music.play('jazz');
     this.buildWoodBackground();
     this.meta = loadMeta();
     this.offerUntil = 0;
@@ -291,6 +293,7 @@ export class ShopScene extends Phaser.Scene {
     );
 
     saveMeta(this.meta);
+    Music.playBuySound();
     this.messageText.setText(`Bought ${item.name}! Wait for restock for new cards.`);
     this.refreshOffers(false);
   }

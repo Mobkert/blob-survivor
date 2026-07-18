@@ -8,6 +8,7 @@ import {
   getActiveSlotIndex,
   SAVE_SLOT_COUNT,
 } from '../data/meta.js';
+import { Music } from '../systems/MusicManager.js';
 
 export class SavesScene extends Phaser.Scene {
   constructor() {
@@ -15,6 +16,7 @@ export class SavesScene extends Phaser.Scene {
   }
 
   create() {
+    Music.play('chill');
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x101828);
 
     this.add

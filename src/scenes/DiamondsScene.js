@@ -11,6 +11,7 @@ import {
   GOLD_PER_DIAMOND_PACK,
   DIAMONDS_PER_PACK,
 } from '../data/meta.js';
+import { Music } from '../systems/MusicManager.js';
 
 export class DiamondsScene extends Phaser.Scene {
   constructor() {
@@ -18,6 +19,7 @@ export class DiamondsScene extends Phaser.Scene {
   }
 
   create() {
+    Music.play('synth');
     this.buildBackground();
     this.meta = loadMeta();
     this.cardSlots = [];
@@ -121,6 +123,7 @@ export class DiamondsScene extends Phaser.Scene {
       this.messageText.setText(`Need ${GOLD_PER_DIAMOND_PACK} gold to exchange.`);
       return;
     }
+    Music.playBuySound();
     this.meta = loadMeta();
     this.refreshBalance();
     this.messageText.setText(`Exchanged ${GOLD_PER_DIAMOND_PACK} gold for ${DIAMONDS_PER_PACK} diamonds!`);
@@ -234,6 +237,7 @@ export class DiamondsScene extends Phaser.Scene {
     this.meta.diamonds -= cost;
     this.meta.unlocked.push(item.id);
     saveMeta(this.meta);
+    Music.playBuySound();
     this.messageText.setText(`Unlocked ${item.name}! It can appear in level-ups.`);
     this.refreshBalance();
     this.refreshCards();

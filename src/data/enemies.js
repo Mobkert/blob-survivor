@@ -158,8 +158,12 @@ export function getScaledEnemyHp(baseHp, wave) {
 }
 
 export function getScaledBossHp(baseHp, wave) {
-  const bossIndex = Math.max(1, Math.floor(wave / 7));
-  return Math.floor(baseHp * (1 + (bossIndex - 1) * 0.4));
+  // Wave 7 = 1st fight, 14 = 2nd, 21 = 3rd, ...
+  const encounter = Math.max(1, Math.floor(wave / 7));
+  // First fight uses normal wave-7 scaling (average difficulty).
+  const baseline = getScaledEnemyHp(baseHp, 7);
+  // Each later Goblin King fight gains +45% HP over the previous baseline step.
+  return Math.floor(baseline * (1 + (encounter - 1) * 0.45));
 }
 
 export function isBossWave(wave) {

@@ -74,6 +74,7 @@ export class CombatSystem {
 
   handlePlayerEnemyContact(enemy) {
     if (!enemy.active || enemy.isDying) return;
+    if (this.player.isDead()) return;
     const time = this.scene.time.now;
 
     if (this.player.shieldActive && this.playerState.shieldThorns > 0) {

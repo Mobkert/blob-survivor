@@ -3,6 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
 import { ShopItems, isPremiumShopCard, isDiamondShopCard, isBossDropCard } from '../data/shop.js';
 import { PowerupList } from '../data/powerups.js';
 import { loadMeta } from '../data/meta.js';
+import { Music } from '../systems/MusicManager.js';
 
 const CARD_W = 160;
 const CARD_H = 210;
@@ -18,6 +19,7 @@ export class DeckScene extends Phaser.Scene {
   }
 
   create() {
+    Music.play('chill');
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x142010);
 
     this.add

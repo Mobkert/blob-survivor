@@ -24,6 +24,61 @@ export class BootScene extends Phaser.Scene {
     this.createTileTextures();
     this.createSaveFolderIcon();
     this.createCardPickupTexture();
+    this.createSettingsGearIcon();
+    this.createLevelIcons();
+  }
+
+  createLevelIcons() {
+    // Plains: green checkered floor like the arena grass
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const a = 0x3d7a37;
+      const b = 0x4a8f42;
+      const s = 16;
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+          g.fillStyle((row + col) % 2 === 0 ? a : b, 1);
+          g.fillRect(col * s, row * s, s, s);
+        }
+      }
+      g.generateTexture('level_icon_plains', 64, 64);
+      g.destroy();
+    }
+
+    // Locked / coming soon: grey checkered floor
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const a = 0x3a3a3a;
+      const b = 0x4a4a4a;
+      const s = 16;
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+          g.fillStyle((row + col) % 2 === 0 ? a : b, 1);
+          g.fillRect(col * s, row * s, s, s);
+        }
+      }
+      g.generateTexture('level_icon_locked', 64, 64);
+      g.destroy();
+    }
+  }
+
+  createSettingsGearIcon() {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xd0d8e0, 1);
+    g.fillCircle(16, 16, 7);
+    g.lineStyle(5, 0xd0d8e0, 1);
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.PI * 2 * i) / 8;
+      const x1 = 16 + Math.cos(a) * 8;
+      const y1 = 16 + Math.sin(a) * 8;
+      const x2 = 16 + Math.cos(a) * 14;
+      const y2 = 16 + Math.sin(a) * 14;
+      g.lineBetween(x1, y1, x2, y2);
+    }
+    g.fillStyle(0x1a2a14, 1);
+    g.fillCircle(16, 16, 4);
+    g.generateTexture('icon_settings_gear', 32, 32);
+    g.destroy();
   }
 
   createCardPickupTexture() {

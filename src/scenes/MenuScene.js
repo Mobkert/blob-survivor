@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { loadMeta, getActiveSlotIndex } from '../data/meta.js';
 import { ShopItems } from '../data/shop.js';
+import { Music, bindMusicUnlock } from '../systems/MusicManager.js';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -12,6 +13,9 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    bindMusicUnlock(this);
+    Music.play('chill');
+
     const { width, height } = this.scale;
 
     this.add.rectangle(width / 2, height / 2, width, height, 0x142010);
@@ -33,15 +37,8 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.createButton(width / 2, height * 0.38, 'Play', () => {
-      if (this.scene.isActive('UIScene')) {
-        this.scene.stop('UIScene');
-      }
-      this.scene.start('LoadingScene', {
-        durationMs: 3000,
-        nextScene: 'GameScene',
-        launchScenes: ['UIScene'],
-      });
+    this.createButton(width / 2, height * 0.38, 'Levels', () => {
+      this.scene.start('LevelsScene');
     });
 
     this.createButton(width / 2, height * 0.48, 'Shop', () => {
@@ -94,6 +91,147 @@ export class MenuScene extends Phaser.Scene {
         color: '#778877',
       })
       .setOrigin(0.5);
+
+    this.createSettingsButton(width - 44, 44);
+  }
+
+  createSettingsButton(x, y) {
+    const btn = this.add
+      .circle(x, y, 26, 0x2a3a28, 1)
+      .setStrokeStyle(2, 0x88aa88)
+      .setDepth(80)
+      .setInteractive({ useHandCursor: true });
+    const icon = this.add
+      .image(x, y, 'icon_settings_gear')
+      .setDisplaySize(28, 28)
+      .setDepth(81);
+
+    btn.on('pointerover', () => btn.setFillStyle(0x3a5a38));
+    btn.on('pointerout', () => btn.setFillStyle(0x2a3a28));
+    btn.on('pointerdown', () => this.toggleSettingsPanel());
+
+    this.settingsBtn = btn;
+    this.settingsIcon = icon;
+    this.settingsOpen = false;
+    this.settingsPanel = null;
+  }
+
+  toggleSettingsPanel() {
+    if (this.settingsOpen) {
+      this.closeSettingsPanel();
+      return;
+    }
+    this.openSettingsPanel();
+  }
+
+  openSettingsPanel() {
+    this.closeSettingsPanel();
+    this.settingsOpen = true;
+    const { width } = this.scale;
+    const panel = this.add.container(width - 170, 120).setDepth(90);
+
+    const bg = this.add
+      .rectangle(0, 0, 280, 140, 0x152015, 0.96)
+      .setStrokeStyle(2, 0x66aa66);
+    const title = this.add
+      .text(0, -48, 'Settings', {
+        fontFamily: 'Arial',
+        fontSize: '20px',
+        color: '#c8e8c8',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    const label = this.add
+      .text(0, -18, 'Music Volume', {
+        fontFamily: 'Arial',
+        fontSize: '15px',
+        color: '#a8c8a8',
+      })
+      .setOrigin(0.5);
+
+    const barW = 200;
+    const barH = 14;
+    const barX = 0;
+    const barY = 22;
+
+    const track = this.add
+      .rectangle(barX, barY, barW, barH, 0x223322, 1)
+      .setStrokeStyle(2, 0x557755)
+      .setInteractive({ useHandCursor: true });
+
+    const fill = this.add
+      .rectangle(barX - barW / 2, barY, 1, barH - 2, 0x55cc66, 1)
+      .setOrigin(0, 0.5);
+
+    const knob = this.add
+      .circle(barX, barY, 11, 0xe8ffe8, 1)
+      .setStrokeStyle(2, 0x66aa66)
+      .setInteractive({ useHandCursor: true });
+
+    const valueText = this.add
+      .text(0, 52, '', {
+        fontFamily: 'Arial',
+        fontSize: '14px',
+        color: '#ddeedd',
+      })
+      .setOrigin(0.5);
+
+    const applyVolumeVisual = (vol) => {
+      const v = Math.max(0, Math.min(1, vol));
+      fill.width = Math.max(2, barW * v);
+      knob.x = barX - barW / 2 + barW * v;
+      valueText.setText(`${Math.round(v * 100)}%`);
+    };
+
+    const setFromLocalX = (localX) => {
+      const left = barX - barW / 2;
+      const t = Math.max(0, Math.min(1, (localX - left) / barW));
+      Music.unlock();
+      Music.setVolume(t);
+      applyVolumeVisual(t);
+    };
+
+    applyVolumeVisual(Music.getVolume());
+
+    const onPointerDown = (pointer) => {
+      this._volumeDragging = true;
+      const local = panel.getLocalPoint(pointer.x, pointer.y);
+      setFromLocalX(local.x);
+    };
+    const onPointerMove = (pointer) => {
+      if (!this._volumeDragging || !this.settingsOpen) return;
+      const local = panel.getLocalPoint(pointer.x, pointer.y);
+      setFromLocalX(local.x);
+    };
+    const onPointerUp = () => {
+      this._volumeDragging = false;
+    };
+
+    track.on('pointerdown', onPointerDown);
+    knob.on('pointerdown', onPointerDown);
+    this._volumeMove = onPointerMove;
+    this._volumeUp = onPointerUp;
+    this.input.on('pointermove', onPointerMove);
+    this.input.on('pointerup', onPointerUp);
+
+    panel.add([bg, title, label, track, fill, knob, valueText]);
+    this.settingsPanel = panel;
+  }
+
+  closeSettingsPanel() {
+    this.settingsOpen = false;
+    this._volumeDragging = false;
+    if (this._volumeMove) {
+      this.input.off('pointermove', this._volumeMove);
+      this._volumeMove = null;
+    }
+    if (this._volumeUp) {
+      this.input.off('pointerup', this._volumeUp);
+      this._volumeUp = null;
+    }
+    this.settingsPanel?.destroy(true);
+    this.settingsPanel = null;
   }
 
   createButton(x, y, label, onClick, disabled = false, style = {}) {
