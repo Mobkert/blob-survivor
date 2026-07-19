@@ -330,16 +330,7 @@ export const Enemies = {
     id: 'kingFrog',
     name: 'King Frog',
     color: 0x44aa33,
-    hp: 2800,
-    speed: 0,
-    contactDamage: 48,
-    xp: 55,
-    coinMin: 140,
-    coinMax: 230,
-    instantKill: false,
-    radius: 64,
-    isBoss: true,
-    attackDamage: 62,
+    hp: 2200,
     farDistance: 480,
   },
   swampSnake: {
@@ -435,7 +426,7 @@ const BOSS_HP_BY_ENCOUNTER = {
   goblinKing: [1400, 1750, 2150],
   kingMagmaCube: [1600, 1800, 2400],
   yeti: [2000, 2600, 3000],
-  kingFrog: [2800, 3600, 4400],
+  kingFrog: [2200, 2800, 3400],
 };
 
 export function getScaledBossHp(baseHp, wave, bossId = null) {

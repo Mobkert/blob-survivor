@@ -199,11 +199,11 @@ export function getAvailablePowerups() {
   return [...PowerupList, ...shopUnlocked];
 }
 
-function weightedPick(items, count) {
+function weightedPick(items, count, levelId = 'plains') {
   const pool = items.map((item) => ({
     item,
     // Bought shop cards are much more common so they show up soon after unlock.
-    weight: item.price != null ? 4 : 1,
+    weight: item.price != null ? 4 : item.id === 'healOnKill' && levelId === 'swamp' ? 7 : 1,
   }));
   const picked = [];
 
@@ -223,7 +223,7 @@ function weightedPick(items, count) {
   return picked;
 }
 
-export function pickPowerupCards(state, count = 3) {
+export function pickPowerupCards(state, count = 3, levelId = 'plains') {
   const available = getAvailablePowerups().filter((p) => p.eligible(state));
   if (available.length === 0) return [];
 
@@ -231,13 +231,24 @@ export function pickPowerupCards(state, count = 3) {
   const shopEligible = available.filter((p) => p.price != null);
   const result = [];
 
-  if (shopEligible.length > 0) {
-    const guaranteed = shopEligible[Math.floor(Math.random() * shopEligible.length)];
-    result.push(guaranteed);
+  // In Murk Swamp, often guarantee Heal on Kill in the offer.
+  if (levelId === 'swamp') {
+    const heal = available.find((p) => p.id === 'healOnKill');
+    if (heal && Math.random() < 0.55) {
+      result.push(heal);
+    }
+  }
+
+  if (shopEligible.length > 0 && result.length < count) {
+    const shopPool = shopEligible.filter((p) => !result.some((r) => r.id === p.id));
+    if (shopPool.length > 0) {
+      const guaranteed = shopPool[Math.floor(Math.random() * shopPool.length)];
+      result.push(guaranteed);
+    }
   }
 
   const remainingPool = available.filter((p) => !result.some((r) => r.id === p.id));
-  const fillers = weightedPick(remainingPool, count - result.length);
+  const fillers = weightedPick(remainingPool, count - result.length, levelId);
   result.push(...fillers);
 
   return shuffleArray(result).slice(0, count);

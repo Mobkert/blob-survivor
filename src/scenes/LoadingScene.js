@@ -67,6 +67,35 @@ export class LoadingScene extends Phaser.Scene {
 
     this.startPigeonSpin(pigeon);
 
+    if (this.levelId === 'swamp') {
+      this.add
+        .rectangle(GAME_WIDTH / 2, 56, 980, 72, 0x0c1810, 0.78)
+        .setStrokeStyle(2, 0x66aa55)
+        .setDepth(5);
+      this.add
+        .text(GAME_WIDTH / 2, 42, 'Recommended loadout for Murk Swamp', {
+          fontFamily: 'Arial',
+          fontSize: '18px',
+          color: '#a8ee88',
+          fontStyle: 'bold',
+        })
+        .setOrigin(0.5)
+        .setDepth(6);
+      this.add
+        .text(
+          GAME_WIDTH / 2,
+          68,
+          'Immortal Core  ·  Reaper Edge  ·  Eagle Eye  ·  Scavenger  ·  Heal Pulse  ·  Airstrike',
+          {
+            fontFamily: 'Arial',
+            fontSize: '14px',
+            color: '#ffe08a',
+          },
+        )
+        .setOrigin(0.5)
+        .setDepth(6);
+    }
+
     this.time.delayedCall(this.durationMs, () => this.finishLoading());
   }
 

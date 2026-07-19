@@ -12,6 +12,39 @@ import { broadcastMeleeArc, grantCoopCoins, registerCoopVfx, unregisterCoopVfx }
 
 const MAX_EXPLOSION_DEPTH = 2;
 
+/** Melee damage vs later biomes: ~3× swamp/tundra, 2× volcanic wizards & magma. */
+function getMeleeBiomeDamageMult(enemy, levelId) {
+  if (!enemy) return 1;
+
+  const isSwamp =
+    enemy.isFrog ||
+    enemy.isSwampSnake ||
+    enemy.isMosquito ||
+    enemy.isSwampSpider ||
+    enemy.typeId === 'kingFrog' ||
+    enemy.enemyData?.isFrog ||
+    enemy.enemyData?.isSwampSnake ||
+    enemy.enemyData?.isMosquito ||
+    enemy.enemyData?.isSwampSpider;
+
+  const isTundra =
+    enemy.isIceCube ||
+    enemy.isIceWizard ||
+    enemy.typeId === 'yeti' ||
+    enemy.enemyData?.isIceCube ||
+    enemy.enemyData?.isIceWizard;
+
+  if (isSwamp || isTundra) return 2.9;
+
+  const isMagma = enemy.isMagma || enemy.typeId === 'kingMagmaCube' || enemy.enemyData?.isMagma;
+  const isVolcanicWizard =
+    levelId === 'volcanic' && (enemy.isWizard || enemy.enemyData?.isWizard) && !enemy.isIceWizard;
+
+  if (isMagma || isVolcanicWizard) return 2;
+
+  return 1;
+}
+
 export class CombatSystem {
   /**
    * @param {object} [options]
@@ -404,6 +437,11 @@ export class CombatSystem {
     if (enemy.enemyData?.iceArmor) {
       if (options.fromBig) damage *= 1.5;
       else if (options.fromMelee || options.fromRanged) damage *= 0.5;
+    }
+
+    // Melee hits harder against later-campaign biomes.
+    if (options.fromMelee) {
+      damage *= getMeleeBiomeDamageMult(enemy, this.scene.levelId);
     }
 
     if (this.playerState.critChance > 0 && Math.random() < this.playerState.critChance) {

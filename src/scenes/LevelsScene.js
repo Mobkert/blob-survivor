@@ -1,8 +1,17 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
 import { Levels, LevelList, getLevelLockLabel, isLevelUnlocked } from '../data/levels.js';
-import { loadMeta } from '../data/meta.js';
+import { loadMeta, isUnlocked } from '../data/meta.js';
 import { Music } from '../systems/MusicManager.js';
+
+const SWAMP_RECOMMENDED_CARD_IDS = [
+  'immortalCore',
+  'reaperEdge',
+  'eagleEye',
+  'airstrike',
+  'scavenger',
+  'healPulse',
+];
 
 export class LevelsScene extends Phaser.Scene {
   constructor() {
@@ -129,44 +138,55 @@ export class LevelsScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.detailDesc = this.add
-      .text(GAME_WIDTH / 2, 555, '', {
+      .text(GAME_WIDTH / 2, 548, '', {
         fontFamily: 'Arial',
-        fontSize: '16px',
+        fontSize: '15px',
         color: '#aacdaa',
         align: 'center',
-        wordWrap: { width: 700 },
+        wordWrap: { width: 720 },
       })
       .setOrigin(0.5);
 
+    this.recommendText = this.add
+      .text(GAME_WIDTH / 2, 588, '', {
+        fontFamily: 'Arial',
+        fontSize: '13px',
+        color: '#ffe08a',
+        align: 'center',
+        wordWrap: { width: 780 },
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
+
     this.playBtn = this.add
-      .rectangle(GAME_WIDTH / 2, 600, 220, 52, 0x2a5a28)
+      .rectangle(GAME_WIDTH / 2, 628, 220, 48, 0x2a5a28)
       .setStrokeStyle(2, 0x66aa66)
       .setInteractive({ useHandCursor: true });
     this.playText = this.add
-      .text(GAME_WIDTH / 2, 600, 'Play', {
+      .text(GAME_WIDTH / 2, 628, 'Play', {
         fontFamily: 'Arial',
-        fontSize: '24px',
+        fontSize: '22px',
         color: '#ffffff',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
 
     this.multiplayerBtn = this.add
-      .rectangle(GAME_WIDTH / 2, 662, 220, 52, 0x2a4a8a)
+      .rectangle(GAME_WIDTH / 2, 682, 220, 48, 0x2a4a8a)
       .setStrokeStyle(2, 0x6688cc)
       .setInteractive({ useHandCursor: true });
     this.multiplayerText = this.add
-      .text(GAME_WIDTH / 2, 652, 'Multiplayer', {
+      .text(GAME_WIDTH / 2, 672, 'Multiplayer', {
         fontFamily: 'Arial',
-        fontSize: '20px',
+        fontSize: '18px',
         color: '#e0ecff',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
     this.multiplayerSubtext = this.add
-      .text(GAME_WIDTH / 2, 674, 'VERY BUGGY in ALPHA !!!', {
+      .text(GAME_WIDTH / 2, 692, 'VERY BUGGY in ALPHA !!!', {
         fontFamily: 'Arial',
-        fontSize: '12px',
+        fontSize: '11px',
         color: '#ffaa66',
         fontStyle: 'bold',
       })
@@ -268,6 +288,16 @@ export class LevelsScene extends Phaser.Scene {
       this.detailDesc.setText(selected.description);
     }
 
+    if (selectedUnlocked && selected.id === 'swamp') {
+      this.recommendText.setText(
+        'Recommended: Immortal Core · Reaper Edge · Eagle Eye · Scavenger · Heal Pulse · Airstrike',
+      );
+      this.recommendText.setVisible(true);
+    } else {
+      this.recommendText.setText('');
+      this.recommendText.setVisible(false);
+    }
+
     if (selectedUnlocked) {
       this.playBtn.setFillStyle(this.accentFill(selected.id, false));
       this.playBtn.setStrokeStyle(2, this.accentStroke(selected.id));
@@ -287,6 +317,21 @@ export class LevelsScene extends Phaser.Scene {
     const selected = LevelList.find((l) => l.id === this.selectedId);
     if (!isLevelUnlocked(selected, this.completedLevels)) return;
 
+    if (selected.id === 'swamp') {
+      if (!this.hasSwampRecommendedLoadout()) {
+        this.showSwampConfirm();
+        return;
+      }
+    }
+
+    this.beginLevel(selected.id);
+  }
+
+  hasSwampRecommendedLoadout() {
+    return SWAMP_RECOMMENDED_CARD_IDS.every((id) => isUnlocked(id));
+  }
+
+  beginLevel(levelId) {
     if (this.scene.isActive('UIScene')) {
       this.scene.stop('UIScene');
     }
@@ -295,8 +340,94 @@ export class LevelsScene extends Phaser.Scene {
       durationMs: 3000,
       nextScene: 'GameScene',
       launchScenes: ['UIScene'],
-      levelId: selected.id,
+      levelId,
     });
+  }
+
+  showSwampConfirm() {
+    if (this.swampConfirmGroup) {
+      this.swampConfirmGroup.destroy(true);
+      this.swampConfirmGroup = null;
+    }
+
+    const group = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2).setDepth(100);
+    this.swampConfirmGroup = group;
+
+    const dim = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.65)
+      .setInteractive();
+    const panel = this.add
+      .rectangle(0, 0, 620, 280, 0x142818, 1)
+      .setStrokeStyle(3, 0x66aa55);
+
+    const title = this.add
+      .text(0, -96, 'Are you sure you want to continue?', {
+        fontFamily: 'Arial',
+        fontSize: '22px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        align: 'center',
+        wordWrap: { width: 560 },
+      })
+      .setOrigin(0.5);
+
+    const body = this.add
+      .text(
+        0,
+        -28,
+        "It's recommended to have Immortal Core, Reaper Edge, Eagle Eye, Airstrike, Scavenger and Heal Pulse.",
+        {
+          fontFamily: 'Arial',
+          fontSize: '16px',
+          color: '#ffe08a',
+          align: 'center',
+          wordWrap: { width: 540 },
+        },
+      )
+      .setOrigin(0.5);
+
+    const yesBtn = this.add
+      .rectangle(-110, 88, 160, 48, 0x2a5a28)
+      .setStrokeStyle(2, 0x66aa66)
+      .setInteractive({ useHandCursor: true });
+    const yesText = this.add
+      .text(-110, 88, 'Continue', {
+        fontFamily: 'Arial',
+        fontSize: '18px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    const noBtn = this.add
+      .rectangle(110, 88, 160, 48, 0x5a2a28)
+      .setStrokeStyle(2, 0xaa6666)
+      .setInteractive({ useHandCursor: true });
+    const noText = this.add
+      .text(110, 88, 'Go Back', {
+        fontFamily: 'Arial',
+        fontSize: '18px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    yesBtn.on('pointerover', () => yesBtn.setFillStyle(0x3a7a38));
+    yesBtn.on('pointerout', () => yesBtn.setFillStyle(0x2a5a28));
+    yesBtn.on('pointerdown', () => {
+      group.destroy(true);
+      this.swampConfirmGroup = null;
+      this.beginLevel('swamp');
+    });
+
+    noBtn.on('pointerover', () => noBtn.setFillStyle(0x7a3a38));
+    noBtn.on('pointerout', () => noBtn.setFillStyle(0x5a2a28));
+    noBtn.on('pointerdown', () => {
+      group.destroy(true);
+      this.swampConfirmGroup = null;
+    });
+
+    group.add([dim, panel, title, body, yesBtn, yesText, noBtn, noText]);
   }
 
   openMultiplayer() {

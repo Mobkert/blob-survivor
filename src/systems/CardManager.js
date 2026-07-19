@@ -31,7 +31,7 @@ export class CardManager {
     this.isOpen = true;
     this.cards = mode === 'weapon'
       ? pickWeaponCards(3)
-      : pickPowerupCards(this.playerState, 3);
+      : pickPowerupCards(this.playerState, 3, this.gameScene.levelId);
 
     if (this.cards.length === 0) {
       this.isOpen = false;
@@ -39,7 +39,10 @@ export class CardManager {
     }
 
     while (this.cards.length < 3) {
-      const extra = mode === 'weapon' ? pickWeaponCards(1)[0] : pickPowerupCards(this.playerState, 1)[0];
+      const extra =
+        mode === 'weapon'
+          ? pickWeaponCards(1)[0]
+          : pickPowerupCards(this.playerState, 1, this.gameScene.levelId)[0];
       if (extra && !this.cards.some((c) => c.id === extra.id)) {
         this.cards.push(extra);
       } else {
