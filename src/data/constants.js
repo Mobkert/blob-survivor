@@ -34,6 +34,7 @@ export function createPlayerState() {
     blastRadiusBonus: 0,
     chainReaction: false,
     maxHpBonus: 0,
+    maxHpMultiplier: 1,
     healOnKill: 0,
     speedBonus: 0,
     poison: false,
@@ -135,7 +136,8 @@ export function createPlayerState() {
 }
 
 export function getMaxHp(state) {
-  return PLAYER_MAX_HP + state.maxHpBonus;
+  const base = PLAYER_MAX_HP + (state.maxHpBonus || 0);
+  return Math.floor(base * (state.maxHpMultiplier || 1));
 }
 
 export function getMoveSpeed(state, time = 0) {

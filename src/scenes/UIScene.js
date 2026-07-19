@@ -356,6 +356,8 @@ export class UIScene extends Phaser.Scene {
       this.bossNameText.setColor('#aaddff');
     } else if (boss.typeId === 'kingMagmaCube') {
       this.bossNameText.setColor('#ffaa66');
+    } else if (boss.typeId === 'kingFrog') {
+      this.bossNameText.setColor('#88dd66');
     } else {
       this.bossNameText.setColor('#ffcc88');
     }
@@ -371,6 +373,8 @@ export class UIScene extends Phaser.Scene {
     this.bossBar.width = 500 * ratio;
     if (boss.typeId === 'yeti') {
       this.bossBar.setFillStyle(ratio > 0.5 ? 0x4488cc : ratio > 0.25 ? 0x66aadd : 0x2266aa);
+    } else if (boss.typeId === 'kingFrog') {
+      this.bossBar.setFillStyle(ratio > 0.5 ? 0x44aa33 : ratio > 0.25 ? 0x66cc44 : 0x228822);
     } else {
       this.bossBar.setFillStyle(ratio > 0.5 ? 0xcc3344 : ratio > 0.25 ? 0xcc8844 : 0xaa2222);
     }

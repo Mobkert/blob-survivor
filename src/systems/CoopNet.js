@@ -130,7 +130,13 @@ export function serializeBossTelegraph(enemy) {
     lx: Math.round(enemy.lockedX || enemy.x),
     ly: Math.round(enemy.lockedY || enemy.y),
     boss:
-      enemy.typeId === 'kingMagmaCube' ? 'magma' : enemy.typeId === 'yeti' ? 'yeti' : 'goblin',
+      enemy.typeId === 'kingMagmaCube'
+        ? 'magma'
+        : enemy.typeId === 'yeti'
+          ? 'yeti'
+          : enemy.typeId === 'kingFrog'
+            ? 'frog'
+            : 'goblin',
   };
 }
 
@@ -245,10 +251,11 @@ function drawGuestTelegraph(g, sprite, t) {
   g.clear();
   const isMagma = t.boss === 'magma';
   const isYeti = t.boss === 'yeti';
-  const fill = isYeti ? 0x66aadd : isMagma ? 0xff3300 : 0xff2222;
-  const line = isYeti ? 0xaaddff : isMagma ? 0xff8844 : 0xff4444;
-  g.fillStyle(fill, isYeti || isMagma ? 0.32 : 0.35);
-  g.lineStyle(2, line, isYeti || isMagma ? 0.85 : 0.8);
+  const isFrog = t.boss === 'frog';
+  const fill = isFrog ? 0x55aa33 : isYeti ? 0x66aadd : isMagma ? 0xff3300 : 0xff2222;
+  const line = isFrog ? 0x88cc55 : isYeti ? 0xaaddff : isMagma ? 0xff8844 : 0xff4444;
+  g.fillStyle(fill, isYeti || isMagma || isFrog ? 0.32 : 0.35);
+  g.lineStyle(2, line, isYeti || isMagma || isFrog ? 0.85 : 0.8);
 
   const x = sprite.x;
   const y = sprite.y;
@@ -264,7 +271,9 @@ function drawGuestTelegraph(g, sprite, t) {
           : attack === 'dash'
             ? isMagma
               ? 540
-              : 560
+              : isFrog
+                ? 460
+                : 560
             : 520;
     const width =
       attack === 'cannon' || attack === 'blast'
@@ -274,11 +283,37 @@ function drawGuestTelegraph(g, sprite, t) {
           : attack === 'dash'
             ? isMagma
               ? 72
-              : 70
+              : isFrog
+                ? 48
+                : 70
             : 56;
     drawOrientedRect(g, x, y, ang, len, width);
-  } else if (attack === 'cone') {
-    drawCone(g, x, y, ang, 340, Phaser.Math.DegToRad(55));
+  } else if (attack === 'cone' || attack === 'tongueWhip') {
+    if (attack === 'tongueWhip') {
+      const length = 360;
+      const tipX = x + Math.cos(ang) * length;
+      const tipY = y + Math.sin(ang) * length;
+      g.fillStyle(0xff6688, 0.3);
+      g.lineStyle(2, 0xff99aa, 0.9);
+      g.fillTriangle(
+        x + Math.cos(ang + Math.PI / 2) * 70,
+        y + Math.sin(ang + Math.PI / 2) * 70,
+        tipX,
+        tipY,
+        x + Math.cos(ang - Math.PI / 2) * 70,
+        y + Math.sin(ang - Math.PI / 2) * 70,
+      );
+      g.strokeTriangle(
+        x + Math.cos(ang + Math.PI / 2) * 70,
+        y + Math.sin(ang + Math.PI / 2) * 70,
+        tipX,
+        tipY,
+        x + Math.cos(ang - Math.PI / 2) * 70,
+        y + Math.sin(ang - Math.PI / 2) * 70,
+      );
+    } else {
+      drawCone(g, x, y, ang, 340, Phaser.Math.DegToRad(55));
+    }
   } else if (attack === 'aoe' || attack === 'explosion' || attack === 'frostNova') {
     const r = attack === 'frostNova' ? 240 : attack === 'explosion' ? 230 : 200;
     g.fillCircle(x, y, r);
@@ -288,9 +323,26 @@ function drawGuestTelegraph(g, sprite, t) {
     const ny = y + Math.sin(ang) * 70;
     g.fillCircle(nx, ny, 110);
     g.strokeCircle(nx, ny, 110);
-  } else if (attack === 'bomb' || attack === 'eruption' || attack === 'spikeRain' || attack === 'avalanche') {
+  } else if (
+    attack === 'bomb' ||
+    attack === 'eruption' ||
+    attack === 'spikeRain' ||
+    attack === 'avalanche' ||
+    attack === 'slamJump' ||
+    attack === 'acidSpit'
+  ) {
     const r =
-      attack === 'avalanche' ? 120 : attack === 'spikeRain' ? 95 : attack === 'eruption' ? 110 : 95;
+      attack === 'avalanche'
+        ? 120
+        : attack === 'slamJump'
+          ? 110
+          : attack === 'acidSpit'
+            ? 95
+            : attack === 'spikeRain'
+              ? 95
+              : attack === 'eruption'
+                ? 110
+                : 95;
     g.fillCircle(t.lx, t.ly, r);
     g.strokeCircle(t.lx, t.ly, r);
   }

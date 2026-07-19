@@ -15,6 +15,7 @@ import { CardManager } from '../systems/CardManager.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { FxPool } from '../systems/FxPool.js';
 import { Music } from '../systems/MusicManager.js';
+import { buildSwampPonds, updateSwampPlayerHazards } from '../systems/SwampHazards.js';
 import { getLevel } from '../data/levels.js';
 import { addCoins, addDiamonds, markLevelComplete } from '../data/meta.js';
 import { getPowerup } from '../data/powerups.js';
@@ -316,6 +317,9 @@ export class GameScene extends Phaser.Scene {
 
     if (this.levelId === 'tundra') {
       this.buildIceSpikeObstacles(half);
+    }
+    if (this.levelId === 'swamp') {
+      buildSwampPonds(this, half);
     }
   }
 
@@ -752,6 +756,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.player.update(time, this.cursors, this.input.activePointer);
+    if (this.levelId === 'swamp') {
+      updateSwampPlayerHazards(this, this.player, time);
+      if (this.ally?.active) updateSwampPlayerHazards(this, this.ally, time);
+    }
 
     if (this.isMultiplayer && this.mpRole === 'host') {
       if (this.guestInput) applyGuestInputOnHost(this, this.guestInput);

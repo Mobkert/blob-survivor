@@ -33,6 +33,9 @@ export class LoadingScene extends Phaser.Scene {
     if (!this.textures.exists('loading_screen_tundra')) {
       this.load.image('loading_screen_tundra', 'images/loading_tundra.png');
     }
+    if (!this.textures.exists('loading_screen_swamp')) {
+      this.load.image('loading_screen_swamp', 'images/loading_swamp.png');
+    }
     if (!this.textures.exists('loading_pigeon')) {
       this.load.image('loading_pigeon', 'images/pigeon.png');
     }
@@ -47,6 +50,7 @@ export class LoadingScene extends Phaser.Scene {
     let bgKey = 'loading_screen';
     if (this.levelId === 'volcanic') bgKey = 'loading_screen_volcanic';
     else if (this.levelId === 'tundra') bgKey = 'loading_screen_tundra';
+    else if (this.levelId === 'swamp') bgKey = 'loading_screen_swamp';
 
     this.add
       .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, bgKey)

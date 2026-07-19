@@ -98,6 +98,26 @@ export class BootScene extends Phaser.Scene {
       g.destroy();
     }
 
+    // Murk Swamp: dark / light green checker + pond
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const a = 0x2a5a28;
+      const b = 0x4a8a44;
+      const s = 16;
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+          g.fillStyle((row + col) % 2 === 0 ? a : b, 1);
+          g.fillRect(col * s, row * s, s, s);
+        }
+      }
+      g.fillStyle(0x8a9a3a, 0.85);
+      g.fillCircle(32, 36, 12);
+      g.fillStyle(0x66aa55, 0.7);
+      g.fillEllipse(20, 48, 14, 8);
+      g.generateTexture('level_icon_swamp', 64, 64);
+      g.destroy();
+    }
+
     // Locked / coming soon: grey checkered floor
     {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -493,6 +513,148 @@ export class BootScene extends Phaser.Scene {
     this.drawIceCube('enemy_iceCubeBig', 48, 0xaadfff, 0x77bbdd);
     this.drawYeti();
     this.drawIceSpikeTextures();
+    this.drawSwampEnemies();
+  }
+
+  drawSwampEnemies() {
+    this.drawFrog('enemy_frogTongue', 34, 0x55aa44, 0x338822);
+    this.drawFrog('enemy_frogDash', 40, 0x338833, 0x226622);
+    this.drawFrog('enemy_frogAcid', 34, 0x88cc44, 0x66aa22);
+    this.drawKingFrog();
+    this.drawSnakeHead();
+    this.drawSnakeSeg();
+    this.drawMosquito();
+    this.drawSwampSpider();
+  }
+
+  drawFrog(key, size, body, shade) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const cx = size / 2;
+    const cy = size / 2 + 2;
+    g.fillStyle(shade, 1);
+    g.fillEllipse(cx + 1, cy + 2, size * 0.78, size * 0.58);
+    g.fillStyle(body, 1);
+    g.fillEllipse(cx, cy, size * 0.72, size * 0.52);
+    // Eyes
+    g.fillStyle(0xe8ffcc, 1);
+    g.fillCircle(cx - size * 0.18, cy - size * 0.18, size * 0.14);
+    g.fillCircle(cx + size * 0.18, cy - size * 0.18, size * 0.14);
+    g.fillStyle(0x223311, 1);
+    g.fillCircle(cx - size * 0.18, cy - size * 0.18, size * 0.06);
+    g.fillCircle(cx + size * 0.18, cy - size * 0.18, size * 0.06);
+    // Legs
+    g.fillStyle(body, 1);
+    g.fillCircle(cx - size * 0.32, cy + size * 0.12, size * 0.12);
+    g.fillCircle(cx + size * 0.32, cy + size * 0.12, size * 0.12);
+    g.generateTexture(key, size, size);
+    g.destroy();
+  }
+
+  drawKingFrog() {
+    const size = 112;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x226622, 1);
+    g.fillEllipse(58, 68, 88, 70);
+    g.fillStyle(0x44aa33, 1);
+    g.fillEllipse(56, 64, 78, 62);
+    g.fillStyle(0x88cc55, 0.7);
+    g.fillEllipse(56, 74, 40, 28);
+    // Crown bump
+    g.fillStyle(0x66cc44, 1);
+    g.fillCircle(56, 28, 26);
+    g.fillStyle(0xffdd44, 1);
+    g.fillTriangle(40, 22, 48, 6, 56, 22);
+    g.fillTriangle(56, 22, 64, 6, 72, 22);
+    g.fillTriangle(48, 18, 56, 2, 64, 18);
+    // Eyes
+    g.fillStyle(0xf0ffd0, 1);
+    g.fillCircle(42, 36, 10);
+    g.fillCircle(70, 36, 10);
+    g.fillStyle(0x223311, 1);
+    g.fillCircle(42, 36, 4);
+    g.fillCircle(70, 36, 4);
+    // Arms
+    g.fillStyle(0x44aa33, 1);
+    g.fillEllipse(16, 70, 24, 18);
+    g.fillEllipse(96, 70, 24, 18);
+    g.generateTexture('enemy_kingFrog', size, size);
+    g.destroy();
+  }
+
+  drawSnakeHead() {
+    const size = 32;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x448822, 1);
+    g.fillCircle(16, 16, 13);
+    g.fillStyle(0x66aa33, 1);
+    g.fillCircle(16, 16, 11);
+    g.fillStyle(0x223311, 1);
+    g.fillCircle(12, 13, 2.5);
+    g.fillCircle(20, 13, 2.5);
+    g.fillStyle(0xff4466, 1);
+    g.fillTriangle(16, 20, 14, 26, 18, 26);
+    g.generateTexture('enemy_swampSnake', size, size);
+    g.destroy();
+  }
+
+  drawSnakeSeg() {
+    const size = 28;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x3a7722, 1);
+    g.fillCircle(14, 14, 11);
+    g.fillStyle(0x55aa33, 1);
+    g.fillCircle(14, 14, 9);
+    g.fillStyle(0x88cc55, 0.5);
+    g.fillCircle(11, 11, 3);
+    g.generateTexture('enemy_swampSnakeSeg', size, size);
+    g.destroy();
+  }
+
+  drawMosquito() {
+    const size = 28;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x665544, 1);
+    g.fillEllipse(14, 16, 14, 10);
+    g.fillStyle(0x886644, 1);
+    g.fillEllipse(14, 15, 12, 8);
+    g.fillStyle(0x442211, 1);
+    g.fillCircle(8, 14, 2);
+    g.fillCircle(20, 14, 2);
+    // Proboscis
+    g.lineStyle(2, 0x442211, 1);
+    g.lineBetween(14, 20, 14, 26);
+    g.fillStyle(0xaaccdd, 0.4);
+    g.fillEllipse(6, 10, 8, 4);
+    g.fillEllipse(22, 10, 8, 4);
+    g.generateTexture('enemy_mosquito', size, size);
+    g.destroy();
+  }
+
+  drawSwampSpider() {
+    const size = 40;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const cx = 20;
+    const cy = 20;
+    // 8 legs
+    g.lineStyle(2.5, 0x443322, 1);
+    for (let i = 0; i < 8; i++) {
+      const side = i < 4 ? -1 : 1;
+      const row = i % 4;
+      const ly = 8 + row * 6;
+      const lx1 = cx + side * 6;
+      const lx2 = cx + side * (14 + (row % 2) * 2);
+      g.lineBetween(lx1, ly, lx2, ly - 4);
+      g.lineBetween(lx2, ly - 4, lx2 + side * 4, ly + 6);
+    }
+    g.fillStyle(0x554433, 1);
+    g.fillCircle(cx, cy, 10);
+    g.fillStyle(0x776655, 1);
+    g.fillCircle(cx, cy - 1, 8);
+    g.fillStyle(0xff3344, 1);
+    g.fillCircle(cx - 3, cy - 2, 2);
+    g.fillCircle(cx + 3, cy - 2, 2);
+    g.generateTexture('enemy_swampSpider', size, size);
+    g.destroy();
   }
 
   drawIceCube(key, size, body, shade) {
@@ -720,6 +882,31 @@ export class BootScene extends Phaser.Scene {
       }
 
       g.generateTexture(`ttile_${index}`, TILE_SIZE, TILE_SIZE);
+      g.destroy();
+    });
+
+    // Murk Swamp: dark green / light green / green-blueish
+    const swamp = [0x1e4a28, 0x3a7a40, 0x2a6a58, 0x4a8a48, 0x286050];
+    swamp.forEach((color, index) => {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(color, 1);
+      g.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+
+      g.fillStyle(0x66aa55, 0.22);
+      for (let i = 0; i < 4; i++) {
+        const x = Phaser.Math.Between(0, TILE_SIZE - 10);
+        const y = Phaser.Math.Between(0, TILE_SIZE - 10);
+        g.fillEllipse(x, y, 6, 3);
+      }
+
+      g.fillStyle(0x88aa66, 0.3);
+      for (let i = 0; i < 3; i++) {
+        const x = Phaser.Math.Between(4, TILE_SIZE - 8);
+        const y = Phaser.Math.Between(4, TILE_SIZE - 8);
+        g.fillCircle(x, y, 2 + (i % 2));
+      }
+
+      g.generateTexture(`stile_${index}`, TILE_SIZE, TILE_SIZE);
       g.destroy();
     });
   }

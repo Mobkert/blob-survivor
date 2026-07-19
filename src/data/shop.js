@@ -666,15 +666,14 @@ export const ShopItems = {
     name: 'Immortal Core',
     category: 'passive',
     color: 0xffeecc,
-    price: 2250,
-    description: 'Revive at 40% HP (2s invuln). +60 max HP, 18% lifesteal. -12% move speed.',
+    price: 4000,
+    description: 'Revive at 40% HP (2s invuln). +80% max HP. -12% move speed.',
     eligible: () => true,
     apply: (state) => {
       state.secondWind = true;
       state.secondWindUsed = false;
       state.immortalCore = true;
-      state.maxHpBonus += 60;
-      state.lifesteal = (state.lifesteal || 0) + 0.18;
+      state.maxHpMultiplier = (state.maxHpMultiplier || 1) * 1.8;
       state.speedMultiplier *= 0.88;
     },
   },

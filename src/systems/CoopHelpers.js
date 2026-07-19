@@ -13,8 +13,13 @@ import { MagmaCube, isMagmaType } from '../entities/MagmaCube.js';
 import { GoblinKing } from '../entities/GoblinKing.js';
 import { KingMagmaCube } from '../entities/KingMagmaCube.js';
 import { Yeti } from '../entities/Yeti.js';
+import { KingFrog } from '../entities/KingFrog.js';
 import { IceCube, isIceCubeType } from '../entities/IceCube.js';
 import { IceWizard, isIceWizardType } from '../entities/IceWizard.js';
+import { Frog, isFrogType } from '../entities/Frog.js';
+import { SwampSnake, isSwampSnakeType } from '../entities/SwampSnake.js';
+import { Mosquito, isMosquitoType } from '../entities/Mosquito.js';
+import { SwampSpider, isSwampSpiderType } from '../entities/SwampSpider.js';
 import { snapshotCoopVfx, serializeBossTelegraph, applyGuestVfxZones, applyGuestEnemyTelegraph } from './CoopNet.js';
 
 export function initMultiplayerFlags(scene, data) {
@@ -326,10 +331,15 @@ function spawnGuestEnemy(scene, e) {
   if (e.type === 'goblinKing') enemy = new GoblinKing(scene, e.x, e.y, 7);
   else if (e.type === 'kingMagmaCube') enemy = new KingMagmaCube(scene, e.x, e.y, 7);
   else if (e.type === 'yeti') enemy = new Yeti(scene, e.x, e.y, 7);
+  else if (e.type === 'kingFrog') enemy = new KingFrog(scene, e.x, e.y, 7);
   else if (isIceWizardType(e.type)) enemy = new IceWizard(scene, e.x, e.y, e.type, 1);
   else if (isWizardType(e.type)) enemy = new Wizard(scene, e.x, e.y, e.type, 1);
   else if (isMagmaType(e.type)) enemy = new MagmaCube(scene, e.x, e.y, e.type, 1);
   else if (isIceCubeType(e.type)) enemy = new IceCube(scene, e.x, e.y, e.type, 1);
+  else if (isFrogType(e.type)) enemy = new Frog(scene, e.x, e.y, e.type, 1);
+  else if (isSwampSnakeType(e.type)) enemy = new SwampSnake(scene, e.x, e.y, e.type, 1);
+  else if (isMosquitoType(e.type)) enemy = new Mosquito(scene, e.x, e.y, e.type, 1);
+  else if (isSwampSpiderType(e.type)) enemy = new SwampSpider(scene, e.x, e.y, e.type, 1);
   else enemy = new Enemy(scene, e.x, e.y, e.type, 1);
   enemy._netId = e.id;
   enemy.body.enable = false;

@@ -43,15 +43,15 @@ export const Levels = {
   swamp: {
     id: 'swamp',
     name: 'Murk Swamp',
-    description: 'Toxic fog and lurking threats. Coming soon.',
+    description: 'Murky ponds and toxic fauna. Frogs, snakes, and the King Frog.',
     maxWaves: 21,
-    comingSoon: true,
-    icon: 'level_icon_locked',
-    accent: 0x666666,
-    clearGold: 0,
-    clearDiamonds: 0,
-    tilePrefix: 'tile_',
-    bgColor: 0x142010,
+    unlockAfter: 'tundra',
+    icon: 'level_icon_swamp',
+    accent: 0x66aa55,
+    clearGold: 4000,
+    clearDiamonds: 25,
+    tilePrefix: 'stile_',
+    bgColor: 0x0c1810,
   },
   neon: {
     id: 'neon',
@@ -130,5 +130,6 @@ export function getLevelLockLabel(level, completedLevels = []) {
   if (isLevelUnlocked(level, completedLevels)) return 'AVAILABLE';
   if (level.unlockAfter === 'plains') return 'CLEAR PLAINS';
   if (level.unlockAfter === 'volcanic') return 'CLEAR VOLCANIC RIDGE';
+  if (level.unlockAfter === 'tundra') return 'CLEAR FROZEN TUNDRA';
   return 'LOCKED';
 }

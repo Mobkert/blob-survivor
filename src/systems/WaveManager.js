@@ -4,10 +4,15 @@ import { Enemy } from '../entities/Enemy.js';
 import { GoblinKing } from '../entities/GoblinKing.js';
 import { KingMagmaCube } from '../entities/KingMagmaCube.js';
 import { Yeti } from '../entities/Yeti.js';
+import { KingFrog } from '../entities/KingFrog.js';
 import { Wizard, isWizardType } from '../entities/Wizard.js';
 import { MagmaCube, isMagmaType } from '../entities/MagmaCube.js';
 import { IceCube, isIceCubeType } from '../entities/IceCube.js';
 import { IceWizard, isIceWizardType } from '../entities/IceWizard.js';
+import { Frog, isFrogType } from '../entities/Frog.js';
+import { SwampSnake, isSwampSnakeType } from '../entities/SwampSnake.js';
+import { Mosquito, isMosquitoType } from '../entities/Mosquito.js';
+import { SwampSpider, isSwampSpiderType } from '../entities/SwampSpider.js';
 
 export class WaveManager {
   /**
@@ -51,6 +56,8 @@ export class WaveManager {
         boss = new KingMagmaCube(this.scene, 0, 0, waveNumber);
       } else if (this.levelId === 'tundra') {
         boss = new Yeti(this.scene, 0, 0, waveNumber);
+      } else if (this.levelId === 'swamp') {
+        boss = new KingFrog(this.scene, 0, 0, waveNumber);
       } else {
         boss = new GoblinKing(this.scene, 0, 0, waveNumber);
       }
@@ -74,6 +81,14 @@ export class WaveManager {
         enemy = new MagmaCube(this.scene, pos.x, pos.y, typeId, waveNumber);
       } else if (isIceCubeType(typeId)) {
         enemy = new IceCube(this.scene, pos.x, pos.y, typeId, waveNumber);
+      } else if (isFrogType(typeId)) {
+        enemy = new Frog(this.scene, pos.x, pos.y, typeId, waveNumber);
+      } else if (isSwampSnakeType(typeId)) {
+        enemy = new SwampSnake(this.scene, pos.x, pos.y, typeId, waveNumber);
+      } else if (isMosquitoType(typeId)) {
+        enemy = new Mosquito(this.scene, pos.x, pos.y, typeId, waveNumber);
+      } else if (isSwampSpiderType(typeId)) {
+        enemy = new SwampSpider(this.scene, pos.x, pos.y, typeId, waveNumber);
       } else {
         enemy = new Enemy(this.scene, pos.x, pos.y, typeId, waveNumber);
       }
@@ -114,5 +129,9 @@ export class WaveManager {
 
   respawnWave() {
     this.startWave(this.currentWave);
+  }
+
+  isComplete() {
+    return this.isWaveActive && this.aliveCount === 0;
   }
 }

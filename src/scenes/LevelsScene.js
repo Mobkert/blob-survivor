@@ -67,7 +67,12 @@ export class LevelsScene extends Phaser.Scene {
       .setStrokeStyle(3, unlocked ? level.accent : 0x555555);
 
     const iconKey =
-      unlocked || level.id === 'volcanic' || level.id === 'tundra' ? level.icon : 'level_icon_locked';
+      unlocked ||
+      level.id === 'volcanic' ||
+      level.id === 'tundra' ||
+      level.id === 'swamp'
+        ? level.icon
+        : 'level_icon_locked';
     const icon = this.add
       .image(0, -28, this.textures.exists(iconKey) ? iconKey : 'level_icon_locked')
       .setDisplaySize(72, 72)
@@ -189,12 +194,14 @@ export class LevelsScene extends Phaser.Scene {
   accentFill(levelId, hover = false) {
     if (levelId === 'volcanic') return hover ? 0x8a3820 : 0x6a2818;
     if (levelId === 'tundra') return hover ? 0x3a6a8a : 0x2a4a68;
+    if (levelId === 'swamp') return hover ? 0x3a6a38 : 0x2a4a28;
     return hover ? 0x3a7a38 : 0x2a5a28;
   }
 
   accentStroke(levelId) {
     if (levelId === 'volcanic') return 0xcc6644;
     if (levelId === 'tundra') return 0x66bbdd;
+    if (levelId === 'swamp') return 0x66aa55;
     return 0x66aa66;
   }
 
@@ -208,6 +215,11 @@ export class LevelsScene extends Phaser.Scene {
       return selected
         ? { fill: 0x183848, stroke: 0x88ddff }
         : { fill: 0x142830, stroke: Levels.tundra.accent };
+    }
+    if (levelId === 'swamp') {
+      return selected
+        ? { fill: 0x1a3820, stroke: 0x88cc66 }
+        : { fill: 0x142818, stroke: Levels.swamp.accent };
     }
     return selected
       ? { fill: 0x2a4a28, stroke: 0xaaff88 }
@@ -250,6 +262,8 @@ export class LevelsScene extends Phaser.Scene {
       this.detailDesc.setText('Complete Plains on this save slot to unlock Volcanic Ridge.');
     } else if (selected.unlockAfter === 'volcanic') {
       this.detailDesc.setText('Complete Volcanic Ridge on this save slot to unlock Frozen Tundra.');
+    } else if (selected.unlockAfter === 'tundra') {
+      this.detailDesc.setText('Complete Frozen Tundra on this save slot to unlock Murk Swamp.');
     } else {
       this.detailDesc.setText(selected.description);
     }

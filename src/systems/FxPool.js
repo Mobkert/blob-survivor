@@ -45,6 +45,8 @@ export class FxPool {
 
   release(c) {
     if (!c) return;
+    // Only recycle pooled circles — Graphics/images would corrupt the pool and freeze the game.
+    if (!this.all.includes(c)) return;
     // Already pooled / inactive — avoid double-release corruption.
     if (!c.visible && !c.active && this.free.includes(c)) return;
     this.scene.tweens.killTweensOf(c);

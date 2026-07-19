@@ -3,6 +3,8 @@ import { Enemies, isBossWave } from './enemies.js';
 const WIZARD_TYPES = ['wizard', 'darkWizard', 'healWizard', 'lightningWizard'];
 const MAGMA_TYPES = ['magmaCube', 'magmaBrute', 'magmaSpitter'];
 const ICE_CUBE_TYPES = ['iceCubeSmall', 'iceCubeBig', 'iceCubeMedium'];
+const FROG_TYPES = ['frogTongue', 'frogDash', 'frogAcid'];
+const SWAMP_MID_TYPES = ['swampSnake', 'mosquito', 'swampSpider'];
 
 function randBetween(min, max) {
   return min + Math.random() * (max - min);
@@ -12,6 +14,31 @@ function fillWizards(count) {
   const composition = [];
   for (let i = 0; i < count; i++) {
     composition.push(WIZARD_TYPES[Math.floor(Math.random() * WIZARD_TYPES.length)]);
+  }
+  return composition;
+}
+
+function fillFrogs(count) {
+  const composition = [];
+  for (let i = 0; i < count; i++) {
+    let type;
+    if (i % 5 === 0) type = 'frogDash';
+    else if (i % 3 === 0) type = 'frogAcid';
+    else type = 'frogTongue';
+    composition.push(type);
+  }
+  return composition;
+}
+
+function fillSwampMid(count) {
+  const composition = [];
+  for (let i = 0; i < count; i++) {
+    composition.push(SWAMP_MID_TYPES[i % SWAMP_MID_TYPES.length]);
+  }
+  // Shuffle lightly so waves aren't rigidly ordered
+  for (let i = composition.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [composition[i], composition[j]] = [composition[j], composition[i]];
   }
   return composition;
 }
@@ -77,6 +104,23 @@ function getTundraComposition(wave) {
   return composition.length > 0 ? composition : ['iceWizard'];
 }
 
+function getSwampComposition(wave) {
+  if (isBossWave(wave)) {
+    return ['kingFrog'];
+  }
+
+  // Waves 1–10: frogs only.
+  if (wave <= 10) {
+    const count = Math.min(20, 5 + Math.floor(wave * 1.15));
+    return fillFrogs(count);
+  }
+
+  // Wave 11+: snakes, mosquitoes, spiders — no more frogs.
+  const era = wave - 10;
+  const count = Math.min(18, 5 + Math.floor(era * 1.15));
+  return fillSwampMid(count);
+}
+
 function getPlainsComposition(wave) {
   if (isBossWave(wave)) {
     return ['goblinKing'];
@@ -119,6 +163,9 @@ export function getWaveComposition(wave, levelId = 'plains') {
   if (levelId === 'tundra') {
     return getTundraComposition(wave);
   }
+  if (levelId === 'swamp') {
+    return getSwampComposition(wave);
+  }
   return getPlainsComposition(wave);
 }
 
@@ -156,4 +203,4 @@ export function getSpawnPositions(count, arenaSize, margin = 120) {
   return positions;
 }
 
-export { Enemies, WIZARD_TYPES, MAGMA_TYPES, ICE_CUBE_TYPES };
+export { Enemies, WIZARD_TYPES, MAGMA_TYPES, ICE_CUBE_TYPES, FROG_TYPES, SWAMP_MID_TYPES };
