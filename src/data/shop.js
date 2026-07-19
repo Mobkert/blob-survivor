@@ -637,8 +637,7 @@ export const ShopItems = {
     name: 'Airstrike',
     category: 'explosive',
     color: 0xff5522,
-    price: 1100,
-    description: 'Big: after a blast, every 0.5–1s drop 2–5 explosions (4 waves). +25% big dmg. +120ms attack CD.',
+    price: 4500,
     eligible: (state) => state.weapon?.type === 'big',
     apply: (state) => {
       state.airstrike = true;
@@ -682,8 +681,7 @@ export const ShopItems = {
     name: 'Nuke Core',
     category: 'explosive',
     color: 0xff2200,
-    price: 1250,
-    description: 'Big: +75% damage, +70% blast size. Bombs fuse slower (+250ms).',
+    price: 5000,
     eligible: (state) => state.weapon?.type === 'big',
     apply: (state) => {
       state.bigDamageBonus = (state.bigDamageBonus || 0) + 0.75;

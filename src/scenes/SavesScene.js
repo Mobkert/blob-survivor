@@ -59,7 +59,8 @@ export class SavesScene extends Phaser.Scene {
         fontSize: '15px',
         color: '#ffe8a8',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(20);
 
     this.slotRows = [];
     this.slotPasswordInputs = [];
@@ -109,8 +110,8 @@ export class SavesScene extends Phaser.Scene {
     this.slotPasswordInputs = [];
 
     const slots = listSaveSlots();
-    const startY = 130;
-    const rowH = 74;
+    const startY = 154;
+    const rowH = 72;
 
     for (let i = 0; i < SAVE_SLOT_COUNT; i += 1) {
       const slot = slots[i];
