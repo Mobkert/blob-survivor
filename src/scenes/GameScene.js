@@ -18,7 +18,7 @@ import { Music } from '../systems/MusicManager.js';
 import { getLevel } from '../data/levels.js';
 import { addCoins, addDiamonds, markLevelComplete } from '../data/meta.js';
 import { getPowerup } from '../data/powerups.js';
-import { getWeapon } from '../data/weapons.js';
+import { getWeapon, getTundraUnlockOptions } from '../data/weapons.js';
 import { clearActiveNetplay } from '../systems/NetplayManager.js';
 import {
   initMultiplayerFlags,
@@ -485,6 +485,90 @@ export class GameScene extends Phaser.Scene {
     this.events.emit('hud-update');
   }
 
+  /**
+   * After the final wave: stay in-world for 15s to grab boss loot.
+   * Frozen Tundra also offers one permanent weapon unlock if any remain.
+   */
+  async runClearLinger(wave) {
+    const LINGER_MS = 15000;
+    this.gameState = 'clear_linger';
+    this.isUserPaused = false;
+    // Don't lose the clear to stray damage while collecting loot.
+    if (this.player) {
+      this.player.invulnerableUntil = this.time.now + LINGER_MS + 2000;
+    }
+    if (this.ally) {
+      this.ally.invulnerableUntil = this.time.now + LINGER_MS + 2000;
+    }
+    this.events.emit('hud-update');
+    this.events.emit('clear-linger-start', { durationMs: LINGER_MS });
+
+    const lingerStarted = this.time.now;
+
+    // Tundra unlock pick (one of the remaining locked specials).
+    if (this.levelId === 'tundra' && !this.isMultiplayer) {
+      const options = getTundraUnlockOptions();
+      if (options.length > 0) {
+        this.gameState = 'weapon_pick';
+        this.isPausedForCard = true;
+        const offer = options.length <= 3
+          ? options
+          : Phaser.Utils.Array.Shuffle([...options]).slice(0, 3);
+        await this.cardManager.showUnlockPick(
+          offer,
+          options.length === 1 ? 'Unlock Your Final Weapon!' : 'Unlock a Tundra Weapon',
+        );
+        this.isPausedForCard = false;
+        this.gameState = 'clear_linger';
+        this.physics.resume();
+      }
+    }
+
+    const elapsed = this.time.now - lingerStarted;
+    const remaining = Math.max(0, LINGER_MS - elapsed);
+    if (remaining > 0) {
+      this.events.emit('clear-linger-start', {
+        durationMs: remaining,
+        message: 'Level cleared! Grab loot',
+      });
+      await new Promise((resolve) => {
+        this.time.delayedCall(remaining, resolve);
+      });
+    }
+
+    this.events.emit('clear-linger-end');
+    this.finishLevelVictory(wave);
+  }
+
+  finishLevelVictory(wave) {
+    this.gameState = 'victory';
+    this.isUserPaused = false;
+    this.physics.pause();
+    const goldReward = this.levelData?.clearGold ?? 1200;
+    const diamondReward = this.levelData?.clearDiamonds ?? 0;
+    const grantedGold = this.isMultiplayer ? Math.floor(goldReward / 2) : goldReward;
+    if (this.isMultiplayer) {
+      grantCoopCoins(this, grantedGold);
+    } else {
+      addCoins(grantedGold);
+      this.events.emit('coins-collected', grantedGold);
+    }
+    if (diamondReward > 0) addDiamonds(diamondReward);
+    markLevelComplete(this.levelId);
+    this.events.emit('level-complete', {
+      wave,
+      levelId: this.levelId,
+      levelName: this.levelData?.name || 'Level',
+      playerLevel: this.playerState.level,
+      playerXp: this.playerState.xp,
+      goldReward: grantedGold,
+      diamondReward,
+      canContinue: this.levelId === 'plains' && !this.isMultiplayer,
+      continueWeapon: this.playerState.weapon ? { ...this.playerState.weapon } : null,
+      continueCards: [...(this.playerState.runPowerups || [])],
+    });
+  }
+
   async handleWaveCleared(wave) {
     if (this.waveTransitionLock) return;
     this.waveTransitionLock = true;
@@ -495,32 +579,7 @@ export class GameScene extends Phaser.Scene {
 
       const maxWaves = this.levelData?.maxWaves || 21;
       if (wave >= maxWaves) {
-        this.gameState = 'victory';
-        this.isUserPaused = false;
-        this.physics.pause();
-        const goldReward = this.levelData?.clearGold ?? 1200;
-        const diamondReward = this.levelData?.clearDiamonds ?? 0;
-        const grantedGold = this.isMultiplayer ? Math.floor(goldReward / 2) : goldReward;
-        if (this.isMultiplayer) {
-          grantCoopCoins(this, grantedGold);
-        } else {
-          addCoins(grantedGold);
-          this.events.emit('coins-collected', grantedGold);
-        }
-        if (diamondReward > 0) addDiamonds(diamondReward);
-        markLevelComplete(this.levelId);
-        this.events.emit('level-complete', {
-          wave,
-          levelId: this.levelId,
-          levelName: this.levelData?.name || 'Level',
-          playerLevel: this.playerState.level,
-          playerXp: this.playerState.xp,
-          goldReward: grantedGold,
-          diamondReward,
-          canContinue: this.levelId === 'plains' && !this.isMultiplayer,
-          continueWeapon: this.playerState.weapon ? { ...this.playerState.weapon } : null,
-          continueCards: [...(this.playerState.runPowerups || [])],
-        });
+        await this.runClearLinger(wave);
         return;
       }
 
@@ -626,7 +685,13 @@ export class GameScene extends Phaser.Scene {
     if (this.gameState === 'game_over' || this.gameState === 'victory' || this.gameState === 'weapon_pick' || this.gameState === 'level_up') {
       return;
     }
-    if (this.gameState !== 'playing' && this.gameState !== 'wave_pause') return;
+    if (
+      this.gameState !== 'playing' &&
+      this.gameState !== 'wave_pause' &&
+      this.gameState !== 'clear_linger'
+    ) {
+      return;
+    }
 
     this.isUserPaused = true;
     this.stateBeforePause = this.gameState;
@@ -693,6 +758,9 @@ export class GameScene extends Phaser.Scene {
       this.waveManager.update(time);
       this.combatSystem.update();
       this.waveManager.checkWaveClear();
+    } else if (this.gameState === 'clear_linger') {
+      // Orbs / card pickups still collect after the final wave.
+      this.combatSystem.update();
     }
   }
 }

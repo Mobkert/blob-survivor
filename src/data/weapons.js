@@ -1,5 +1,20 @@
 /** @typedef {'ranged' | 'melee' | 'big'} WeaponType */
 
+import { isWeaponUnlocked } from './meta.js';
+
+/** Weapons earned by clearing Frozen Tundra (not in the base pool). */
+export const TUNDRA_UNLOCK_WEAPON_IDS = ['assaultRifle', 'molotov', 'mace'];
+
+export function isTundraUnlockWeapon(weaponId) {
+  return TUNDRA_UNLOCK_WEAPON_IDS.includes(weaponId);
+}
+
+export function isWeaponInPool(weapon) {
+  if (!weapon) return false;
+  if (!isTundraUnlockWeapon(weapon.id)) return true;
+  return isWeaponUnlocked(weapon.id);
+}
+
 /** @type {Record<string, object>} */
 export const Weapons = {
   shortbow: {
@@ -31,6 +46,19 @@ export const Weapons = {
     cooldownMs: 700,
     projectileSpeed: 700,
     description: 'Slow, heavy bolts.',
+  },
+  assaultRifle: {
+    id: 'assaultRifle',
+    name: 'Assault Rifle',
+    type: 'ranged',
+    color: 0x777788,
+    damage: 7,
+    cooldownMs: 1850,
+    projectileSpeed: 680,
+    burstCount: 3,
+    burstGapMs: 70,
+    description: 'Fires a 3-round burst. Long reload between bursts.',
+    tundraUnlock: true,
   },
   sword: {
     id: 'sword',
@@ -68,6 +96,18 @@ export const Weapons = {
     zombiePerk: true,
     description: 'Long narrow thrust. Instantly kills zombies.',
   },
+  mace: {
+    id: 'mace',
+    name: 'Mace',
+    type: 'melee',
+    color: 0x8899aa,
+    damage: 45,
+    cooldownMs: 1100,
+    range: 88,
+    circularHit: true,
+    description: 'Heavy circular smash. Huge damage, long cooldown.',
+    tundraUnlock: true,
+  },
   bomb: {
     id: 'bomb',
     name: 'Bomb',
@@ -92,6 +132,22 @@ export const Weapons = {
     zombiePerk: true,
     description: 'Thrown toward cursor. Instantly kills zombies.',
   },
+  molotov: {
+    id: 'molotov',
+    name: 'Molotov',
+    type: 'big',
+    color: 0x335522,
+    damage: 28,
+    cooldownMs: 1550,
+    radius: 80,
+    throwSpeed: 400,
+    fireDurationMinMs: 2000,
+    fireDurationMaxMs: 4000,
+    fireTickDamage: 6,
+    fireRadius: 95,
+    description: 'Thrown bottle. Explodes into a lingering fire patch.',
+    tundraUnlock: true,
+  },
   shockwave: {
     id: 'shockwave',
     name: 'Shockwave',
@@ -108,24 +164,34 @@ export const Weapons = {
 
 export const WeaponList = Object.values(Weapons);
 
+export function getAvailableWeapons() {
+  return WeaponList.filter((w) => isWeaponInPool(w));
+}
+
+export function getTundraUnlockOptions() {
+  return TUNDRA_UNLOCK_WEAPON_IDS.map((id) => getWeapon(id)).filter(
+    (w) => w && !isWeaponUnlocked(w.id),
+  );
+}
+
 export function getWeapon(id) {
   return Weapons[id] ? { ...Weapons[id] } : null;
 }
 
 export function pickWeaponCards(count = 3) {
+  const available = getAvailableWeapons();
   const types = ['ranged', 'melee', 'big'];
   const picked = [];
-  const usedTypes = new Set();
 
   for (const type of types) {
-    const pool = WeaponList.filter((w) => w.type === type);
+    const pool = available.filter((w) => w.type === type && !picked.some((p) => p.id === w.id));
+    if (pool.length === 0) continue;
     const weapon = pool[Math.floor(Math.random() * pool.length)];
     picked.push(weapon);
-    usedTypes.add(type);
   }
 
   while (picked.length < count) {
-    const remaining = WeaponList.filter((w) => !picked.some((p) => p.id === w.id));
+    const remaining = available.filter((w) => !picked.some((p) => p.id === w.id));
     if (remaining.length === 0) break;
     picked.push(remaining[Math.floor(Math.random() * remaining.length)]);
   }

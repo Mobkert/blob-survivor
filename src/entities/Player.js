@@ -78,7 +78,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const worldPoint = pointer.positionToCamera(this.scene.cameras.main);
     const weapon = this.playerState.weapon;
 
-    if (weapon?.id === 'bomb' || weapon?.id === 'grenade') {
+    if (weapon?.id === 'bomb' || weapon?.id === 'grenade' || weapon?.id === 'molotov') {
       return this.clampAimPoint(worldPoint.x, worldPoint.y);
     }
 
@@ -87,7 +87,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   canShowThrowablePreview(time) {
     const weapon = this.playerState.weapon;
-    if (!weapon || (weapon.id !== 'bomb' && weapon.id !== 'grenade')) return false;
+    if (!weapon || (weapon.id !== 'bomb' && weapon.id !== 'grenade' && weapon.id !== 'molotov')) {
+      return false;
+    }
     if (this.throwableInFlight) return false;
     return this.canAttack(time);
   }
@@ -115,8 +117,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    if (weapon.id === 'grenade') {
+    if (weapon.id === 'grenade' || weapon.id === 'molotov') {
       if (this.canShowThrowablePreview(time)) {
+        const key = weapon.id === 'molotov' ? 'weapon_molotov' : 'weapon_grenade';
+        if (this.scene.textures.exists(key)) this.grenadePreview.setTexture(key);
         this.grenadePreview.setPosition(aim.x, aim.y);
         this.grenadePreview.setRotation(0);
         this.grenadePreview.setAlpha(0.9);
@@ -130,7 +134,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.weaponSprite.setTexture(textureKey);
     }
 
-    const holdOffset = weapon.id === 'spear' ? 34 : weapon.type === 'melee' ? 22 : 18;
+    const holdOffset =
+      weapon.id === 'spear' ? 34 : weapon.id === 'mace' ? 20 : weapon.type === 'melee' ? 22 : 18;
     this.weaponSprite.setPosition(
       this.x + Math.cos(this.aimAngle) * holdOffset,
       this.y + Math.sin(this.aimAngle) * holdOffset,

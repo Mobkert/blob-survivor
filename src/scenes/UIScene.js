@@ -74,6 +74,18 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
 
+    this.lingerText = this.add
+      .text(640, 120, '', {
+        fontFamily: 'Arial',
+        fontSize: '22px',
+        color: '#a8ff88',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(121)
+      .setVisible(false);
+
     this.waveCompleteText = this.add
       .text(640, 100, 'Wave Completed', {
         fontFamily: 'Arial',
@@ -191,6 +203,38 @@ export class UIScene extends Phaser.Scene {
     this.gameScene.events.on('game-paused', () => this.showPauseMenu());
     this.gameScene.events.on('game-unpaused', () => this.hidePauseMenu());
     this.gameScene.events.on('wave-cleared', (wave) => this.showWaveCompleted(wave));
+    this.gameScene.events.on('clear-linger-start', (data) => this.startClearLinger(data));
+    this.gameScene.events.on('clear-linger-end', () => this.endClearLinger());
+  }
+
+  startClearLinger(data = {}) {
+    this.endClearLinger();
+    const durationMs = Number(data.durationMs) > 0 ? Number(data.durationMs) : 15000;
+    const message = data.message || 'Level cleared! Grab loot';
+    this.lingerEndsAt = this.time.now + durationMs;
+    this.lingerMessage = message;
+    this.lingerText.setVisible(true);
+    this.lingerText.setText(`${message} — ${Math.ceil(durationMs / 1000)}s`);
+
+    this.lingerTick = this.time.addEvent({
+      delay: 200,
+      loop: true,
+      callback: () => {
+        const left = Math.max(0, this.lingerEndsAt - this.time.now);
+        const secs = Math.ceil(left / 1000);
+        this.lingerText.setText(`${this.lingerMessage} — ${secs}s`);
+        if (left <= 0) this.endClearLinger();
+      },
+    });
+  }
+
+  endClearLinger() {
+    if (this.lingerTick) {
+      this.lingerTick.remove(false);
+      this.lingerTick = null;
+    }
+    this.lingerText?.setVisible(false);
+    this.lingerText?.setText('');
   }
 
   showWaveCompleted(wave) {

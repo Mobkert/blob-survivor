@@ -640,12 +640,7 @@ export class CombatSystem {
       });
     }
 
-    if (
-      enemy.enemyData?.isBoss ||
-      enemy.typeId === 'goblinKing' ||
-      enemy.typeId === 'kingMagmaCube' ||
-      enemy.typeId === 'yeti'
-    ) {
+    if (enemy.typeId === 'goblinKing') {
       this.tryDropTankCard(enemy.x, enemy.y);
     }
 
@@ -1143,25 +1138,38 @@ export class CombatSystem {
   }
 
   fireRanged(angle, weapon) {
+    const damage = weapon.damage * (1 + (this.playerState.rangedDamageBonus || 0));
+
+    // Assault rifle: one click fires a 3-round burst, then long cooldown.
+    if (weapon.burstCount > 1) {
+      const count = weapon.burstCount;
+      const gap = weapon.burstGapMs || 70;
+      for (let i = 0; i < count; i++) {
+        this.scene.time.delayedCall(i * gap, () => {
+          if (!this.player?.active) return;
+          const jitter = (Math.random() - 0.5) * 0.06;
+          this.spawnRangedProjectile(angle + jitter, weapon, damage);
+        });
+      }
+      if ((this.playerState.phantomEcho || 0) > 0) {
+        const echoCount = this.playerState.phantomEcho;
+        for (let i = 0; i < echoCount; i++) {
+          const offset = (i - (echoCount - 1) / 2) * 0.22;
+          this.scene.time.delayedCall(i * 50, () => {
+            this.spawnPhantomEcho(angle + offset, weapon.projectileSpeed, damage * 0.75);
+          });
+        }
+      }
+      return;
+    }
+
     const total = 1 + this.playerState.bonusProjectiles;
     const spread = total > 1 ? 0.18 : 0;
     const start = angle - (spread * (total - 1)) / 2;
-    const damage = weapon.damage * (1 + (this.playerState.rangedDamageBonus || 0));
 
     for (let i = 0; i < total; i++) {
       const shotAngle = start + spread * i;
-      const proj = new Projectile(
-        this.scene,
-        this.player.x + Math.cos(shotAngle) * 20,
-        this.player.y + Math.sin(shotAngle) * 20,
-        shotAngle,
-        weapon.projectileSpeed,
-        damage,
-        this.playerState.piercing,
-        this.playerState,
-      );
-      proj.bouncesLeft = this.playerState.ricochet || 0;
-      this.projectiles.add(proj);
+      this.spawnRangedProjectile(shotAngle, weapon, damage);
     }
 
     if (this.playerState.doubleTap) {
@@ -1169,18 +1177,7 @@ export class CombatSystem {
         const aimSrc = this._lastAimPointer || this.scene.input.activePointer;
         const aim = this.player.getAimPoint(aimSrc);
         const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, aim.x, aim.y);
-        const proj = new Projectile(
-          this.scene,
-          this.player.x + Math.cos(a) * 20,
-          this.player.y + Math.sin(a) * 20,
-          a,
-          weapon.projectileSpeed,
-          damage,
-          this.playerState.piercing,
-          this.playerState,
-        );
-        proj.bouncesLeft = this.playerState.ricochet || 0;
-        this.projectiles.add(proj);
+        this.spawnRangedProjectile(a, weapon, damage);
       });
     }
 
@@ -1193,6 +1190,22 @@ export class CombatSystem {
         });
       }
     }
+  }
+
+  spawnRangedProjectile(angle, weapon, damage) {
+    const proj = new Projectile(
+      this.scene,
+      this.player.x + Math.cos(angle) * 20,
+      this.player.y + Math.sin(angle) * 20,
+      angle,
+      weapon.projectileSpeed,
+      damage,
+      this.playerState.piercing,
+      this.playerState,
+    );
+    proj.bouncesLeft = this.playerState.ricochet || 0;
+    this.projectiles.add(proj);
+    return proj;
   }
 
   spawnPhantomEcho(angle, speed, damage) {
@@ -1279,10 +1292,37 @@ export class CombatSystem {
 
   performMelee(angle, weapon) {
     const damage = weapon.damage * (1 + (this.playerState.meleeDamageBonus || 0));
-    const arc = weapon.arcDegrees + (this.playerState.meleeArcBonus || 0);
     const range = weapon.range + (this.playerState.meleeRangeBonus || 0);
-    const halfArc = Phaser.Math.DegToRad(arc / 2);
     const hitTargets = [];
+
+    if (weapon.circularHit) {
+      this.waveManager.enemies.getChildren().forEach((enemy) => {
+        if (!enemy.active || enemy.isDying) return;
+        const dist = Phaser.Math.Distance.Between(
+          this.player.x,
+          this.player.y,
+          enemy.x,
+          enemy.y,
+        );
+        if (dist <= range + enemy.enemyData.radius) {
+          this.hitEnemy(enemy, damage, { fromMelee: true, zombiePerk: !!weapon.zombiePerk });
+          if (enemy.active && !enemy.isDying) hitTargets.push(enemy);
+        }
+      });
+
+      if (this.playerState.gravityHook && hitTargets.length > 0) {
+        this.applyGravityHook(hitTargets);
+      }
+
+      this.showMeleeCircle(range);
+      if (this.playerState.bloodMoonArc) {
+        this.spawnBloodMoonArc(damage * 0.55);
+      }
+      return;
+    }
+
+    const arc = weapon.arcDegrees + (this.playerState.meleeArcBonus || 0);
+    const halfArc = Phaser.Math.DegToRad(arc / 2);
 
     this.waveManager.enemies.getChildren().forEach((enemy) => {
       if (!enemy.active || enemy.isDying) return;
@@ -1450,6 +1490,20 @@ export class CombatSystem {
     );
   }
 
+  showMeleeCircle(range) {
+    const gfx = this.scene.add.graphics().setDepth(9);
+    const px = this.player.x;
+    const py = this.player.y;
+    gfx.fillStyle(0xccddee, 0.22);
+    gfx.fillCircle(px, py, range);
+    gfx.lineStyle(3, 0xffffff, 0.65);
+    gfx.strokeCircle(px, py, range);
+    this.scene.fx?.burst(px, py, { count: 10, color: 0xaabbcc, speed: 120, life: 220, size: 4 });
+    this.scene.fx?.flash(px, py, 20, 0xffffff, 160, range * 0.45);
+    this.scene.time.delayedCall(140, () => gfx.destroy());
+    broadcastMeleeArc(this.scene, px, py, 0, range, 360);
+  }
+
   performBig(targetX, targetY, angle, weapon) {
     const damage = weapon.damage * (1 + (this.playerState.bigDamageBonus || 0));
     const radius = weapon.radius * (1 + this.playerState.blastRadiusBonus);
@@ -1488,6 +1542,24 @@ export class CombatSystem {
       return;
     }
 
+    if (weapon.id === 'molotov') {
+      this.throwThrowable({
+        texture: 'weapon_molotov',
+        targetX,
+        targetY,
+        angle,
+        flightMs: 400,
+        spinTurns: 2.8,
+        arcHeight: 95,
+        onLand: (x, y) => {
+          this.player.throwableInFlight = false;
+          blast(x, y);
+          this.spawnMolotovFire(x, y, weapon);
+        },
+      });
+      return;
+    }
+
     if (weapon.id === 'bomb') {
       this.throwThrowable({
         texture: 'weapon_bomb',
@@ -1515,6 +1587,73 @@ export class CombatSystem {
     }
 
     blast(targetX, targetY);
+  }
+
+  /** Lingering fire patch after a molotov lands (2–4s). */
+  spawnMolotovFire(x, y, weapon) {
+    const duration =
+      (weapon.fireDurationMinMs || 2000) +
+      Math.random() * ((weapon.fireDurationMaxMs || 4000) - (weapon.fireDurationMinMs || 2000));
+    const radius = (weapon.fireRadius || 95) * (1 + (this.playerState.blastRadiusBonus || 0) * 0.5);
+    const tickDamage = weapon.fireTickDamage || 6;
+    const fx = this.scene.fx;
+
+    const pool = this.scene.add.circle(x, y, radius, 0xff4400, 0.28).setDepth(7);
+    pool.setStrokeStyle(2, 0xffaa44, 0.7);
+    const glow = this.scene.add.circle(x, y, radius * 0.55, 0xff8800, 0.35).setDepth(8);
+
+    fx?.burst(x, y, { count: 16, color: 0xff5522, speed: 140, life: 360, size: 5 });
+    fx?.flash(x, y, 24, 0xffaa44, 280, radius * 0.5);
+
+    const vfxId = registerCoopVfx(this.scene, {
+      kind: 'molotovFire',
+      x,
+      y,
+      r: radius,
+      life: duration,
+    });
+
+    let elapsed = 0;
+    const tick = this.scene.time.addEvent({
+      delay: 200,
+      loop: true,
+      callback: () => {
+        elapsed += 200;
+        if (elapsed >= duration || this.scene.gameState === 'game_over') {
+          tick.remove(false);
+          pool.destroy();
+          glow.destroy();
+          unregisterCoopVfx(this.scene, vfxId);
+          return;
+        }
+
+        const pulse = 0.25 + Math.sin(this.scene.time.now / 120) * 0.08;
+        if (pool.active) pool.setAlpha(pulse);
+        if (glow.active) {
+          glow.setAlpha(0.3 + Math.sin(this.scene.time.now / 90) * 0.1);
+          glow.setRadius(radius * (0.5 + Math.sin(this.scene.time.now / 100) * 0.08));
+        }
+
+        if (Math.random() < 0.55) {
+          fx?.burst(x + (Math.random() - 0.5) * radius, y + (Math.random() - 0.5) * radius, {
+            count: 3,
+            color: Math.random() < 0.5 ? 0xff4400 : 0xffcc44,
+            speed: 50,
+            life: 200,
+            size: 3,
+          });
+        }
+
+        this.waveManager.enemies.getChildren().forEach((enemy) => {
+          if (!enemy.active || enemy.isDying) return;
+          const dist = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+          if (dist <= radius + (enemy.enemyData?.radius || 14)) {
+            this.hitEnemy(enemy, tickDamage, { fromCloud: true, fromBig: true });
+            enemy.applyBurn?.(this.scene.time.now, 5, 1600);
+          }
+        });
+      },
+    });
   }
 
   throwThrowable({ texture, targetX, targetY, angle, flightMs, spinTurns, arcHeight, onLand }) {

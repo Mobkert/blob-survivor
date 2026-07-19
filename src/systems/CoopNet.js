@@ -179,6 +179,8 @@ export function applyGuestVfxZones(scene, zones) {
     if (entry.core && z.kind === 'toxic') entry.core.setRadius(z.r * 0.5);
     if (entry.core && z.kind === 'scorch') entry.core.setRadius(z.r);
     if (entry.ring && z.kind === 'scorch') entry.ring.setRadius(z.r * 0.6);
+    if (entry.core && z.kind === 'molotovFire') entry.core.setRadius(z.r * 0.55);
+    if (entry.ring && z.kind === 'molotovFire') entry.ring.setRadius(z.r);
     if (entry.core && z.kind === 'singularity') entry.core.setRadius(12);
   });
   scene.guestVfxMap.forEach((entry, id) => {
@@ -208,6 +210,13 @@ function createGuestVfx(scene, z) {
       kind: 'scorch',
       core: scene.add.circle(z.x, z.y, z.r, 0xff4400, 0.4).setDepth(5),
       ring: scene.add.circle(z.x, z.y, z.r * 0.6, 0xffaa33, 0.35).setDepth(6),
+    };
+  }
+  if (z.kind === 'molotovFire') {
+    return {
+      kind: 'molotovFire',
+      core: scene.add.circle(z.x, z.y, z.r * 0.55, 0xff8800, 0.35).setDepth(8),
+      ring: scene.add.circle(z.x, z.y, z.r, 0xff4400, 0.28).setDepth(7),
     };
   }
   return {

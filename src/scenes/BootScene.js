@@ -11,9 +11,12 @@ export class BootScene extends Phaser.Scene {
     this.load.image('art_weapon_shortbow', 'images/weapon_shortbow_art.png');
     this.load.image('art_weapon_revolver', 'images/weapon_revolver_art.png');
     this.load.image('art_weapon_crossbow', 'images/weapon_crossbow_art.png');
+    this.load.image('art_weapon_assaultrifle', 'images/weapon_assaultrifle_art.png');
     this.load.image('art_weapon_sword', 'images/weapon_sword_art.png');
     this.load.image('art_weapon_axe', 'images/weapon_axe_art.png');
     this.load.image('art_weapon_spear', 'images/weapon_spear_art.png');
+    this.load.image('art_weapon_mace', 'images/weapon_mace_art.png');
+    this.load.image('art_weapon_molotov', 'images/weapon_molotov_art.png');
   }
 
   create() {
@@ -198,11 +201,14 @@ export class BootScene extends Phaser.Scene {
     if (!this.bakeWeaponArt('art_weapon_shortbow', 'weapon_shortbow', 32, 32, 0)) this.drawShortbow();
     if (!this.bakeWeaponArt('art_weapon_revolver', 'weapon_revolver', 36, 36, 0)) this.drawRevolver();
     if (!this.bakeWeaponArt('art_weapon_crossbow', 'weapon_crossbow', 34, 34, 0)) this.drawCrossbow();
+    if (!this.bakeWeaponArt('art_weapon_assaultrifle', 'weapon_assaultRifle', 48, 28, 0)) this.drawAssaultRifle();
     if (!this.bakeWeaponArt('art_weapon_sword', 'weapon_sword', 28, 32, 90)) this.drawSword();
     if (!this.bakeWeaponArt('art_weapon_axe', 'weapon_axe', 28, 32, 90)) this.drawAxe();
     if (!this.bakeWeaponArt('art_weapon_spear', 'weapon_spear', 64, 22, 90)) this.drawSpear();
+    if (!this.bakeWeaponArt('art_weapon_mace', 'weapon_mace', 36, 48, 90)) this.drawMace();
     this.drawBomb();
     this.drawGrenade();
+    if (!this.bakeWeaponArt('art_weapon_molotov', 'weapon_molotov', 24, 36, 0)) this.drawMolotov();
     this.drawShockwave();
   }
 
@@ -329,6 +335,52 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xcccccc, 1);
     g.fillRect(12, 4, 4, 3);
     g.generateTexture('weapon_grenade', 28, 32);
+    g.destroy();
+  }
+
+  drawAssaultRifle() {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x8b6914, 1);
+    g.fillRect(2, 10, 10, 8);
+    g.fillStyle(0x9999aa, 1);
+    g.fillRect(12, 10, 22, 8);
+    g.fillStyle(0x8b6914, 1);
+    g.fillRect(18, 18, 6, 10);
+    g.fillStyle(0x444455, 1);
+    g.fillRect(20, 18, 5, 12);
+    g.fillStyle(0xaaaaaa, 1);
+    g.fillRect(34, 12, 12, 4);
+    g.generateTexture('weapon_assaultRifle', 48, 28);
+    g.destroy();
+  }
+
+  drawMace() {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x9999aa, 1);
+    g.fillCircle(18, 12, 12);
+    g.fillStyle(0xbbbbcc, 1);
+    g.fillCircle(18, 12, 8);
+    g.fillStyle(0x555566, 1);
+    g.fillRect(15, 22, 6, 6);
+    g.fillStyle(0x8b6914, 1);
+    g.fillRect(15, 28, 6, 14);
+    g.fillStyle(0x444455, 1);
+    g.fillRect(15, 42, 6, 4);
+    g.generateTexture('weapon_mace', 36, 48);
+    g.destroy();
+  }
+
+  drawMolotov() {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x2a6622, 1);
+    g.fillRect(6, 12, 12, 20);
+    g.fillStyle(0x3a8833, 1);
+    g.fillRect(8, 8, 8, 6);
+    g.fillStyle(0xd4b483, 1);
+    g.fillRect(5, 2, 10, 8);
+    g.fillStyle(0xe8d4b0, 1);
+    g.fillRect(8, 22, 6, 6);
+    g.generateTexture('weapon_molotov', 24, 36);
     g.destroy();
   }
 

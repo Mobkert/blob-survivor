@@ -11,6 +11,7 @@ export function defaultMeta() {
     coins: 0,
     diamonds: 0,
     unlocked: [],
+    unlockedWeapons: [],
     completedLevels: [],
     shopOfferIds: [],
     shopOfferUntil: 0,
@@ -22,6 +23,7 @@ function cloneMeta(meta) {
     coins: Math.max(0, Number(meta?.coins) || 0),
     diamonds: Math.max(0, Number(meta?.diamonds) || 0),
     unlocked: Array.isArray(meta?.unlocked) ? [...meta.unlocked] : [],
+    unlockedWeapons: Array.isArray(meta?.unlockedWeapons) ? [...meta.unlockedWeapons] : [],
     completedLevels: Array.isArray(meta?.completedLevels) ? [...meta.completedLevels] : [],
     shopOfferIds: Array.isArray(meta?.shopOfferIds) ? [...meta.shopOfferIds] : [],
     shopOfferUntil: Number(meta?.shopOfferUntil) || 0,
@@ -261,6 +263,24 @@ export function markLevelComplete(levelId) {
 
 export function isLevelCompleted(levelId) {
   return loadMeta().completedLevels.includes(levelId);
+}
+
+export function unlockWeapon(weaponId) {
+  if (!weaponId) return loadMeta();
+  const meta = loadMeta();
+  if (!meta.unlockedWeapons.includes(weaponId)) {
+    meta.unlockedWeapons.push(weaponId);
+    saveMeta(meta);
+  }
+  return meta;
+}
+
+export function isWeaponUnlocked(weaponId) {
+  return loadMeta().unlockedWeapons.includes(weaponId);
+}
+
+export function getUnlockedWeapons() {
+  return [...(loadMeta().unlockedWeapons || [])];
 }
 
 export { SHOP_ROTATION_MS };

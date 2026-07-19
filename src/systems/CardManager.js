@@ -1,5 +1,6 @@
 import { pickWeaponCards } from '../data/weapons.js';
 import { pickPowerupCards } from '../data/powerups.js';
+import { unlockWeapon } from '../data/meta.js';
 
 export class CardManager {
   /**
@@ -57,10 +58,35 @@ export class CardManager {
     });
   }
 
+  /**
+   * Permanent unlock pick (Frozen Tundra clear). Does not equip for this run.
+   * @param {object[]} cards
+   * @param {string} title
+   * @returns {Promise<object|null>}
+   */
+  showUnlockPick(cards, title = 'Unlock a Weapon') {
+    if (this.isOpen) this.close(null);
+    if (!cards?.length) return Promise.resolve(null);
+
+    this.mode = 'unlock';
+    this.isOpen = true;
+    this.cards = cards.map((c) => ({ ...c }));
+    this.gameScene.physics.pause();
+
+    const ui = this.uiScene?.showCardPick ? this.uiScene : this.gameScene.scene.get('UIScene');
+    return new Promise((resolve) => {
+      this.resolvePick = resolve;
+      ui.showCardPick(this.cards, title, (card) => this.selectCard(card));
+    });
+  }
+
   selectCard(card) {
     if (!this.isOpen) return;
 
-    if (this.mode === 'weapon') {
+    if (this.mode === 'unlock') {
+      unlockWeapon(card.id);
+      this.gameScene.events.emit('boss-message', `${card.name} unlocked for future runs!`);
+    } else if (this.mode === 'weapon') {
       this.playerState.weapon = { ...card };
     } else if (card.apply) {
       card.apply(this.playerState);

@@ -30,7 +30,7 @@ export const Levels = {
   tundra: {
     id: 'tundra',
     name: 'Frozen Tundra',
-    description: 'Frozen wastes ringed by ice spikes. Ice cubes early, then ice wizards — face the Yeti.',
+    description: 'Frozen wastes ringed by ice spikes. Clear it to unlock special weapons.',
     maxWaves: 21,
     unlockAfter: 'volcanic',
     icon: 'level_icon_tundra',
