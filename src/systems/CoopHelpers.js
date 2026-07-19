@@ -14,6 +14,7 @@ import { GoblinKing } from '../entities/GoblinKing.js';
 import { KingMagmaCube } from '../entities/KingMagmaCube.js';
 import { Yeti } from '../entities/Yeti.js';
 import { IceCube, isIceCubeType } from '../entities/IceCube.js';
+import { IceWizard, isIceWizardType } from '../entities/IceWizard.js';
 import { snapshotCoopVfx, serializeBossTelegraph, applyGuestVfxZones, applyGuestEnemyTelegraph } from './CoopNet.js';
 
 export function initMultiplayerFlags(scene, data) {
@@ -325,6 +326,7 @@ function spawnGuestEnemy(scene, e) {
   if (e.type === 'goblinKing') enemy = new GoblinKing(scene, e.x, e.y, 7);
   else if (e.type === 'kingMagmaCube') enemy = new KingMagmaCube(scene, e.x, e.y, 7);
   else if (e.type === 'yeti') enemy = new Yeti(scene, e.x, e.y, 7);
+  else if (isIceWizardType(e.type)) enemy = new IceWizard(scene, e.x, e.y, e.type, 1);
   else if (isWizardType(e.type)) enemy = new Wizard(scene, e.x, e.y, e.type, 1);
   else if (isMagmaType(e.type)) enemy = new MagmaCube(scene, e.x, e.y, e.type, 1);
   else if (isIceCubeType(e.type)) enemy = new IceCube(scene, e.x, e.y, e.type, 1);

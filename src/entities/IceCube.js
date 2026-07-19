@@ -3,17 +3,19 @@ import { Enemy } from './Enemy.js';
 
 /**
  * Frozen Tundra ice cubes (waves 1–10).
- * Small: chill on hit. Big: knockback + freeze. Medium: dash attack.
+ * Small: chill on hit. Big: explode near player. Medium: dash attack.
  */
 export class IceCube extends Enemy {
   constructor(scene, x, y, typeId, wave) {
     super(scene, x, y, typeId, wave);
     this.isIceCube = true;
     this.isDashIce = !!this.enemyData.isDashIce;
+    this.isExplodeIce = !!this.enemyData.isExplodeIce;
     this.nextDashTime = scene.time.now + 800 + Math.random() * 900;
     this.phase = 'chase';
     this.phaseEnd = 0;
     this.dashHit = false;
+    this.hasExploded = false;
     this.attackTimers = [];
   }
 
@@ -77,6 +79,14 @@ export class IceCube extends Enemy {
     const speed = this.chaseSpeed * this.slowMultiplier;
     this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
 
+    if (this.isExplodeIce && player?.active && !this.hasExploded) {
+      const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+      if (dist <= (this.enemyData.explodeRange || 78)) {
+        this.explodeNearPlayer(player, time);
+        return;
+      }
+    }
+
     if (this.isDashIce && time >= this.nextDashTime) {
       const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
       if (dist < 320 && dist > 60) {
@@ -84,6 +94,46 @@ export class IceCube extends Enemy {
       } else {
         this.nextDashTime = time + 400;
       }
+    }
+  }
+
+  explodeNearPlayer(player, time) {
+    if (this.hasExploded || this.isDying || !this.active) return;
+    this.hasExploded = true;
+    this.setVelocity(0, 0);
+
+    const dmg = this.enemyData.explodeDamage || 25;
+    const freezeMs = this.enemyData.explodeFreezeMs || 750;
+
+    this.scene.fx?.burst(this.x, this.y, {
+      count: 18,
+      color: 0xaaddff,
+      speed: 180,
+      life: 320,
+      size: 5,
+    });
+    this.scene.fx?.burst(this.x, this.y, {
+      count: 10,
+      color: 0xffffff,
+      speed: 120,
+      life: 260,
+      size: 4,
+    });
+    this.scene.fx?.flash(this.x, this.y, 42, 0xccf0ff, 280, 90);
+
+    if (player?.active) {
+      player.takeDamage(dmg, time);
+      player.applyFreeze?.(time, freezeMs);
+    }
+
+    // Self-destruct through combat so XP/coins still drop.
+    const combat = this.scene.combatSystem;
+    if (combat?.hitEnemy) {
+      combat.hitEnemy(this, this.hp + 999, { fromCloud: true });
+    } else {
+      this.hp = 0;
+      this.markDying();
+      this.destroy();
     }
   }
 

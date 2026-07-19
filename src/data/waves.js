@@ -69,10 +69,12 @@ function getTundraComposition(wave) {
     return fillIceCubes(count);
   }
 
-  // Wave 11+: other enemies (wizards) — no more ice cubes.
+  // Wave 11+: ice wizards — no more ice cubes.
   const era = wave - 10;
-  const wizardCount = Math.min(22, 7 + Math.floor(era * 1.3));
-  return fillWizards(wizardCount);
+  const wizardCount = Math.min(18, 5 + Math.floor(era * 1.15));
+  const composition = [];
+  for (let i = 0; i < wizardCount; i++) composition.push('iceWizard');
+  return composition.length > 0 ? composition : ['iceWizard'];
 }
 
 function getPlainsComposition(wave) {

@@ -7,6 +7,7 @@ import { Yeti } from '../entities/Yeti.js';
 import { Wizard, isWizardType } from '../entities/Wizard.js';
 import { MagmaCube, isMagmaType } from '../entities/MagmaCube.js';
 import { IceCube, isIceCubeType } from '../entities/IceCube.js';
+import { IceWizard, isIceWizardType } from '../entities/IceWizard.js';
 
 export class WaveManager {
   /**
@@ -67,6 +68,8 @@ export class WaveManager {
       let enemy;
       if (isWizardType(typeId)) {
         enemy = new Wizard(this.scene, pos.x, pos.y, typeId, waveNumber);
+      } else if (isIceWizardType(typeId)) {
+        enemy = new IceWizard(this.scene, pos.x, pos.y, typeId, waveNumber);
       } else if (isMagmaType(typeId)) {
         enemy = new MagmaCube(this.scene, pos.x, pos.y, typeId, waveNumber);
       } else if (isIceCubeType(typeId)) {

@@ -409,6 +409,28 @@ export class BootScene extends Phaser.Scene {
       g.destroy();
     });
 
+    // Ice wizard
+    {
+      const size = 40;
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0x88ccee, 1);
+      g.fillCircle(20, 24, 14);
+      g.fillStyle(0xe8f6ff, 1);
+      g.fillTriangle(10, 18, 20, 2, 30, 18);
+      g.fillStyle(0xaaddff, 0.85);
+      g.fillTriangle(14, 16, 20, 6, 26, 16);
+      g.fillStyle(0x224466, 1);
+      g.fillCircle(15, 22, 2.5);
+      g.fillCircle(25, 22, 2.5);
+      g.fillStyle(0xffffff, 0.95);
+      g.fillCircle(20, 8, 2.5);
+      g.fillStyle(0xccf0ff, 0.7);
+      g.fillCircle(8, 28, 3);
+      g.fillCircle(32, 28, 3);
+      g.generateTexture('enemy_iceWizard', size, size);
+      g.destroy();
+    }
+
     this.drawMagmaCube('enemy_magmaCube', 36, 0xdd4422, 0x881100);
     this.drawMagmaCube('enemy_magmaBrute', 44, 0x882200, 0x440800);
     this.drawMagmaCube('enemy_magmaSpitter', 36, 0xff6622, 0xaa3300);

@@ -11,7 +11,7 @@ const ATTACKS = ['blast', 'spikeRain', 'frostNova', 'avalanche', 'blizzard'];
 /**
  * Frozen Tundra boss — Yeti.
  * 5 attack types with VFX; after 6 finished moves → stun.
- * Outside stun takes 3× less damage (same as King Magma Cube).
+ * Outside stun: 3× less damage (5× on the final wave-21 fight).
  */
 export class Yeti extends Enemy {
   constructor(scene, x, y, wave) {
@@ -20,6 +20,8 @@ export class Yeti extends Enemy {
     this.maxHp = getScaledBossHp(this.enemyData.hp, wave, 'yeti');
     this.hp = this.maxHp;
     this.isBoss = true;
+    this.encounter = Math.max(1, Math.floor(wave / 7));
+    this.damageReduction = this.encounter >= 3 ? 5 : 3;
     this.setDepth(6);
     const r = this.enemyData.radius;
     this.setCircle(r);
@@ -509,7 +511,7 @@ export class Yeti extends Enemy {
   takeDamage(damage, ignoreInstantKill = false) {
     let incoming = damage;
     if (this.phase !== 'stun') {
-      incoming = damage / 3;
+      incoming = damage / (this.damageReduction || 3);
     }
     const killed = super.takeDamage(incoming, ignoreInstantKill);
     this.scene.events.emit('boss-hp', this);

@@ -108,7 +108,9 @@ export class CombatSystem {
       }
     }
 
-    this.player.takeDamage(enemy.contactDamage, time);
+    if ((enemy.contactDamage || 0) > 0) {
+      this.player.takeDamage(enemy.contactDamage, time);
+    }
 
     if (enemy.enemyData?.appliesBurn) {
       this.player.applyBurn(
@@ -326,7 +328,7 @@ export class CombatSystem {
     if (!projectile.active || !enemy.active || enemy.isDying) return;
     // Overlap fires every physics step — only apply damage once per enemy.
     if (projectile.hitIds?.has(enemy)) return;
-    const killed = this.hitEnemy(enemy, projectile.damage);
+    const killed = this.hitEnemy(enemy, projectile.damage, { fromRanged: true });
     if (killed && this.playerState.killBounce) {
       projectile.bouncesLeft = Math.max(projectile.bouncesLeft || 0, 1);
       projectile.damage *= 1.2;
@@ -397,6 +399,13 @@ export class CombatSystem {
       enemy.hexMarked = false;
       this.scene.fx?.flash(enemy.x, enemy.y, 10, 0xff66aa, 180, 28);
     }
+
+    // Big / medium ice cubes: resist melee & ranged, weak to big weapons.
+    if (enemy.enemyData?.iceArmor) {
+      if (options.fromBig) damage *= 1.5;
+      else if (options.fromMelee || options.fromRanged) damage *= 0.5;
+    }
+
     if (this.playerState.critChance > 0 && Math.random() < this.playerState.critChance) {
       damage *= 2;
       enemy.setTint(0xffff66);
@@ -788,6 +797,10 @@ export class CombatSystem {
       if (options.zombiePerk && enemy.typeId === 'zombie') {
         dealt = Math.max(dealt, enemy.hp);
       }
+      if (enemy.enemyData?.iceArmor) {
+        if (options.fromBig) dealt *= 1.5;
+        else if (options.fromMelee || options.fromRanged) dealt *= 0.5;
+      }
       if (enemy.takeDamage(dealt)) {
         enemy.markDying();
         chainKills.push(enemy);
@@ -825,7 +838,7 @@ export class CombatSystem {
   }
 
   /** Delayed follow-up blasts for Airstrike. Does not chain further airstrikes. */
-  scheduleAirstrike(x, y, damage, radius) {
+  scheduleAirstrike(x, y, damage, radius, options = {}) {
     if (!this.playerState.airstrike) return;
 
     const waves = 4;
@@ -845,6 +858,7 @@ export class CombatSystem {
             this.createExplosion(x + ox, y + oy, damage * 1.05, 0, radius * 1.0, {
               skipAirstrike: true,
               color: 0xff3311,
+              fromBig: !!options.fromBig,
             });
           });
         }
@@ -852,7 +866,7 @@ export class CombatSystem {
     }
   }
 
-  spawnSingularity(x, y, damage, radius) {
+  spawnSingularity(x, y, damage, radius, options = {}) {
     const fx = this.scene.fx;
     const pullR = Math.max(140, radius * 1.6);
     const core = fx?.hold(x, y, 12, 0x220033, 0.9, 10);
@@ -890,6 +904,7 @@ export class CombatSystem {
           this.createExplosion(x, y, damage * 1.35, 0, pullR * 0.85, {
             skipAirstrike: true,
             color: 0xbb44ff,
+            fromBig: !!options.fromBig,
           });
         }
       },
@@ -1441,10 +1456,13 @@ export class CombatSystem {
     const fuseMs = Math.max(200, (weapon.fuseMs || 800) + (this.playerState.fuseBonusMs || 0));
 
     const blast = (x, y) => {
-      this.createExplosion(x, y, damage, 0, radius, { zombiePerk: !!weapon.zombiePerk });
-      this.scheduleAirstrike(x, y, damage, radius);
+      this.createExplosion(x, y, damage, 0, radius, {
+        zombiePerk: !!weapon.zombiePerk,
+        fromBig: true,
+      });
+      this.scheduleAirstrike(x, y, damage, radius, { fromBig: true });
       if (this.playerState.singularity) {
-        this.spawnSingularity(x, y, damage, radius);
+        this.spawnSingularity(x, y, damage, radius, { fromBig: true });
       }
     };
 
