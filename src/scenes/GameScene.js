@@ -219,6 +219,11 @@ export class GameScene extends Phaser.Scene {
     this.player.hp = getMaxHp(this.playerState);
     this.player.maxHp = getMaxHp(this.playerState);
 
+    if (this._iceSpikesPendingCollider && this.iceSpikes) {
+      this.physics.add.collider(this.player, this.iceSpikes);
+      this._iceSpikesPendingCollider = false;
+    }
+
     this.setupCamera();
 
     this.waveManager = new WaveManager(this, this.player);
@@ -308,6 +313,51 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.physics.world.setBounds(-half, -half, this.arenaSize, this.arenaSize);
+
+    if (this.levelId === 'tundra') {
+      this.buildIceSpikeObstacles(half);
+    }
+  }
+
+  /** Ice spikes ring the arena — block the player, enemies walk through. */
+  buildIceSpikeObstacles(half) {
+    this.iceSpikes = this.physics.add.staticGroup();
+    const inset = 70;
+    const spacing = 110;
+    const edges = [
+      // top & bottom
+      ...Array.from({ length: Math.floor((this.arenaSize - inset * 2) / spacing) + 1 }, (_, i) => ({
+        x: -half + inset + i * spacing,
+        y: -half + inset,
+      })),
+      ...Array.from({ length: Math.floor((this.arenaSize - inset * 2) / spacing) + 1 }, (_, i) => ({
+        x: -half + inset + i * spacing,
+        y: half - inset,
+      })),
+      // left & right (skip corners already covered)
+      ...Array.from({ length: Math.floor((this.arenaSize - inset * 2) / spacing) - 1 }, (_, i) => ({
+        x: -half + inset,
+        y: -half + inset + (i + 1) * spacing,
+      })),
+      ...Array.from({ length: Math.floor((this.arenaSize - inset * 2) / spacing) - 1 }, (_, i) => ({
+        x: half - inset,
+        y: -half + inset + (i + 1) * spacing,
+      })),
+    ];
+
+    edges.forEach(({ x, y }) => {
+      const spike = this.iceSpikes.create(x, y, 'obstacle_ice_spike');
+      spike.setDepth(3);
+      spike.refreshBody();
+      // Narrow collision so the visual tip isn't overly sticky.
+      if (spike.body) {
+        spike.body.setSize(22, 36);
+        spike.body.setOffset(9, 28);
+      }
+    });
+
+    // Collider added after player exists — see create() after player spawn.
+    this._iceSpikesPendingCollider = true;
   }
 
   setupCamera() {

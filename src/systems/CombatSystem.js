@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { getDamageMultiplier } from '../data/constants.js';
 import { Projectile } from '../entities/Projectile.js';
 import { XpOrb } from '../entities/XpOrb.js';
@@ -115,6 +116,21 @@ export class CombatSystem {
         enemy.enemyData.burnDamage || 4,
         enemy.enemyData.burnMs || 2200,
       );
+    }
+
+    if (enemy.enemyData?.appliesChill) {
+      this.player.applyChill?.(
+        time,
+        enemy.enemyData.chillMs || 1600,
+        enemy.enemyData.chillStrength || 0.5,
+      );
+    }
+
+    if (enemy.enemyData?.appliesFreeze) {
+      const ang = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+      this.player.applyKnockback?.(ang, enemy.enemyData.knockbackForce || 480);
+      this.player.applyFreeze?.(time, enemy.enemyData.freezeMs || 500);
+      this.scene.fx?.flash(this.player.x, this.player.y, 18, 0xaaddff, 200, 40);
     }
 
     if (this.playerState.obsidianSkin && (!enemy._lastObsidianHit || time - enemy._lastObsidianHit > 350)) {
@@ -615,7 +631,12 @@ export class CombatSystem {
       });
     }
 
-    if (enemy.enemyData?.isBoss || enemy.typeId === 'goblinKing' || enemy.typeId === 'kingMagmaCube') {
+    if (
+      enemy.enemyData?.isBoss ||
+      enemy.typeId === 'goblinKing' ||
+      enemy.typeId === 'kingMagmaCube' ||
+      enemy.typeId === 'yeti'
+    ) {
       this.tryDropTankCard(enemy.x, enemy.y);
     }
 

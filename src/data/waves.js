@@ -2,6 +2,7 @@ import { Enemies, isBossWave } from './enemies.js';
 
 const WIZARD_TYPES = ['wizard', 'darkWizard', 'healWizard', 'lightningWizard'];
 const MAGMA_TYPES = ['magmaCube', 'magmaBrute', 'magmaSpitter'];
+const ICE_CUBE_TYPES = ['iceCubeSmall', 'iceCubeBig', 'iceCubeMedium'];
 
 function randBetween(min, max) {
   return min + Math.random() * (max - min);
@@ -44,6 +45,36 @@ function getVolcanicComposition(wave) {
   return composition.length > 0 ? composition : ['magmaCube', 'magmaCube', 'magmaSpitter'];
 }
 
+function fillIceCubes(count) {
+  const composition = [];
+  for (let i = 0; i < count; i++) {
+    // Mix: small / medium / big cycling with a bias toward small+medium.
+    let type;
+    if (i % 5 === 0) type = 'iceCubeBig';
+    else if (i % 3 === 0) type = 'iceCubeMedium';
+    else type = 'iceCubeSmall';
+    composition.push(type);
+  }
+  return composition;
+}
+
+function getTundraComposition(wave) {
+  if (isBossWave(wave)) {
+    return ['yeti'];
+  }
+
+  // Waves 1–10: ice cubes only.
+  if (wave <= 10) {
+    const count = Math.min(20, 5 + Math.floor(wave * 1.15));
+    return fillIceCubes(count);
+  }
+
+  // Wave 11+: other enemies (wizards) — no more ice cubes.
+  const era = wave - 10;
+  const wizardCount = Math.min(22, 7 + Math.floor(era * 1.3));
+  return fillWizards(wizardCount);
+}
+
 function getPlainsComposition(wave) {
   if (isBossWave(wave)) {
     return ['goblinKing'];
@@ -83,6 +114,9 @@ export function getWaveComposition(wave, levelId = 'plains') {
   if (levelId === 'volcanic') {
     return getVolcanicComposition(wave);
   }
+  if (levelId === 'tundra') {
+    return getTundraComposition(wave);
+  }
   return getPlainsComposition(wave);
 }
 
@@ -120,4 +154,4 @@ export function getSpawnPositions(count, arenaSize, margin = 120) {
   return positions;
 }
 
-export { Enemies, WIZARD_TYPES, MAGMA_TYPES };
+export { Enemies, WIZARD_TYPES, MAGMA_TYPES, ICE_CUBE_TYPES };

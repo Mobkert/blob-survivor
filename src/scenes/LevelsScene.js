@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
-import { LevelList, getLevelLockLabel, isLevelUnlocked } from '../data/levels.js';
+import { Levels, LevelList, getLevelLockLabel, isLevelUnlocked } from '../data/levels.js';
 import { loadMeta } from '../data/meta.js';
 import { Music } from '../systems/MusicManager.js';
 
@@ -66,7 +66,8 @@ export class LevelsScene extends Phaser.Scene {
       .rectangle(0, 0, w, h, unlocked ? 0x1a2e18 : 0x1a1a1a, 1)
       .setStrokeStyle(3, unlocked ? level.accent : 0x555555);
 
-    const iconKey = unlocked || level.id === 'volcanic' ? level.icon : 'level_icon_locked';
+    const iconKey =
+      unlocked || level.id === 'volcanic' || level.id === 'tundra' ? level.icon : 'level_icon_locked';
     const icon = this.add
       .image(0, -28, this.textures.exists(iconKey) ? iconKey : 'level_icon_locked')
       .setDisplaySize(72, 72)
@@ -173,18 +174,44 @@ export class LevelsScene extends Phaser.Scene {
     this.playBtn.on('pointerover', () => {
       if (this.playBtn.input?.enabled) {
         const selected = LevelList.find((l) => l.id === this.selectedId);
-        const volcanic = selected?.id === 'volcanic';
-        this.playBtn.setFillStyle(volcanic ? 0x8a3820 : 0x3a7a38);
+        this.playBtn.setFillStyle(this.accentFill(selected?.id, true));
       }
     });
     this.playBtn.on('pointerout', () => {
       if (this.playBtn.input?.enabled) {
         const selected = LevelList.find((l) => l.id === this.selectedId);
-        const volcanic = selected?.id === 'volcanic';
-        this.playBtn.setFillStyle(volcanic ? 0x6a2818 : 0x2a5a28);
+        this.playBtn.setFillStyle(this.accentFill(selected?.id, false));
       }
     });
     this.playBtn.on('pointerdown', () => this.startSelectedLevel());
+  }
+
+  accentFill(levelId, hover = false) {
+    if (levelId === 'volcanic') return hover ? 0x8a3820 : 0x6a2818;
+    if (levelId === 'tundra') return hover ? 0x3a6a8a : 0x2a4a68;
+    return hover ? 0x3a7a38 : 0x2a5a28;
+  }
+
+  accentStroke(levelId) {
+    if (levelId === 'volcanic') return 0xcc6644;
+    if (levelId === 'tundra') return 0x66bbdd;
+    return 0x66aa66;
+  }
+
+  cardColors(levelId, selected) {
+    if (levelId === 'volcanic') {
+      return selected
+        ? { fill: 0x4a2218, stroke: 0xff8866 }
+        : { fill: 0x2a1810, stroke: Levels.volcanic.accent };
+    }
+    if (levelId === 'tundra') {
+      return selected
+        ? { fill: 0x183848, stroke: 0x88ddff }
+        : { fill: 0x142830, stroke: Levels.tundra.accent };
+    }
+    return selected
+      ? { fill: 0x2a4a28, stroke: 0xaaff88 }
+      : { fill: 0x1a2e18, stroke: Levels.plains.accent };
   }
 
   refreshSelection() {
@@ -202,10 +229,12 @@ export class LevelsScene extends Phaser.Scene {
         return;
       }
       if (id === this.selectedId) {
-        bg.setFillStyle(level.id === 'volcanic' ? 0x4a2218 : 0x2a4a28);
-        bg.setStrokeStyle(3, level.id === 'volcanic' ? 0xff8866 : 0xaaff88);
+        const c = this.cardColors(level.id, true);
+        bg.setFillStyle(c.fill);
+        bg.setStrokeStyle(3, c.stroke);
       } else {
-        bg.setFillStyle(level.id === 'volcanic' ? 0x2a1810 : 0x1a2e18);
+        const c = this.cardColors(level.id, false);
+        bg.setFillStyle(c.fill);
         bg.setStrokeStyle(3, level.accent);
       }
     });
@@ -219,14 +248,15 @@ export class LevelsScene extends Phaser.Scene {
       this.detailDesc.setText(`${selected.description}  ·  ${selected.maxWaves} waves${rewardText}`);
     } else if (selected.unlockAfter === 'plains') {
       this.detailDesc.setText('Complete Plains on this save slot to unlock Volcanic Ridge.');
+    } else if (selected.unlockAfter === 'volcanic') {
+      this.detailDesc.setText('Complete Volcanic Ridge on this save slot to unlock Frozen Tundra.');
     } else {
       this.detailDesc.setText(selected.description);
     }
 
     if (selectedUnlocked) {
-      const volcanic = selected.id === 'volcanic';
-      this.playBtn.setFillStyle(volcanic ? 0x6a2818 : 0x2a5a28);
-      this.playBtn.setStrokeStyle(2, volcanic ? 0xcc6644 : 0x66aa66);
+      this.playBtn.setFillStyle(this.accentFill(selected.id, false));
+      this.playBtn.setStrokeStyle(2, this.accentStroke(selected.id));
       this.playBtn.setInteractive({ useHandCursor: true });
       this.playText.setColor('#ffffff');
       this.playText.setText('Play');

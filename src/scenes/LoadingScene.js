@@ -44,10 +44,14 @@ export class LoadingScene extends Phaser.Scene {
     const useVolcanic = this.levelId === 'volcanic';
     const bgKey = useVolcanic ? 'loading_screen_volcanic' : 'loading_screen';
 
-    this.add
+    const bg = this.add
       .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, bgKey)
       .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
       .setDepth(0);
+    if (this.levelId === 'tundra') {
+      bg.setTint(0x88bbdd);
+      this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x224466, 0.35).setDepth(1);
+    }
 
     const pigeonX = RED_DOT_X * scaleX;
     const pigeonY = RED_DOT_Y * scaleY;

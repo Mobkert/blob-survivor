@@ -30,15 +30,15 @@ export const Levels = {
   tundra: {
     id: 'tundra',
     name: 'Frozen Tundra',
-    description: 'Icy winds and frostbitten foes. Coming soon.',
+    description: 'Frozen wastes ringed by ice spikes. Ice cubes early, then wizards — face the Yeti.',
     maxWaves: 21,
-    comingSoon: true,
-    icon: 'level_icon_locked',
-    accent: 0x666666,
-    clearGold: 0,
-    clearDiamonds: 0,
-    tilePrefix: 'tile_',
-    bgColor: 0x142030,
+    unlockAfter: 'volcanic',
+    icon: 'level_icon_tundra',
+    accent: 0x66bbdd,
+    clearGold: 3200,
+    clearDiamonds: 20,
+    tilePrefix: 'ttile_',
+    bgColor: 0x0a1828,
   },
   swamp: {
     id: 'swamp',
@@ -129,5 +129,6 @@ export function getLevelLockLabel(level, completedLevels = []) {
   if (level.comingSoon) return 'COMING SOON';
   if (isLevelUnlocked(level, completedLevels)) return 'AVAILABLE';
   if (level.unlockAfter === 'plains') return 'CLEAR PLAINS';
+  if (level.unlockAfter === 'volcanic') return 'CLEAR VOLCANIC RIDGE';
   return 'LOCKED';
 }

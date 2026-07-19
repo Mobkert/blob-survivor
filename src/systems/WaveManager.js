@@ -3,8 +3,10 @@ import { isBossWave } from '../data/enemies.js';
 import { Enemy } from '../entities/Enemy.js';
 import { GoblinKing } from '../entities/GoblinKing.js';
 import { KingMagmaCube } from '../entities/KingMagmaCube.js';
+import { Yeti } from '../entities/Yeti.js';
 import { Wizard, isWizardType } from '../entities/Wizard.js';
 import { MagmaCube, isMagmaType } from '../entities/MagmaCube.js';
+import { IceCube, isIceCubeType } from '../entities/IceCube.js';
 
 export class WaveManager {
   /**
@@ -46,6 +48,8 @@ export class WaveManager {
       let boss;
       if (this.levelId === 'volcanic') {
         boss = new KingMagmaCube(this.scene, 0, 0, waveNumber);
+      } else if (this.levelId === 'tundra') {
+        boss = new Yeti(this.scene, 0, 0, waveNumber);
       } else {
         boss = new GoblinKing(this.scene, 0, 0, waveNumber);
       }
@@ -65,6 +69,8 @@ export class WaveManager {
         enemy = new Wizard(this.scene, pos.x, pos.y, typeId, waveNumber);
       } else if (isMagmaType(typeId)) {
         enemy = new MagmaCube(this.scene, pos.x, pos.y, typeId, waveNumber);
+      } else if (isIceCubeType(typeId)) {
+        enemy = new IceCube(this.scene, pos.x, pos.y, typeId, waveNumber);
       } else {
         enemy = new Enemy(this.scene, pos.x, pos.y, typeId, waveNumber);
       }

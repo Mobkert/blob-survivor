@@ -75,6 +75,26 @@ export class BootScene extends Phaser.Scene {
       g.destroy();
     }
 
+    // Frozen Tundra: blue / white / light-blue ice
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const a = 0x6ab0d8;
+      const b = 0xe8f4ff;
+      const s = 16;
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+          g.fillStyle((row + col) % 2 === 0 ? a : b, 1);
+          g.fillRect(col * s, row * s, s, s);
+        }
+      }
+      g.fillStyle(0xaaddff, 0.7);
+      g.fillTriangle(12, 52, 20, 28, 28, 52);
+      g.fillStyle(0xffffff, 0.85);
+      g.fillTriangle(38, 48, 46, 22, 54, 48);
+      g.generateTexture('level_icon_tundra', 64, 64);
+      g.destroy();
+    }
+
     // Locked / coming soon: grey checkered floor
     {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -393,6 +413,95 @@ export class BootScene extends Phaser.Scene {
     this.drawMagmaCube('enemy_magmaBrute', 44, 0x882200, 0x440800);
     this.drawMagmaCube('enemy_magmaSpitter', 36, 0xff6622, 0xaa3300);
     this.drawKingMagmaCube();
+
+    this.drawIceCube('enemy_iceCubeSmall', 30, 0x88ddff, 0x55aacc);
+    this.drawIceCube('enemy_iceCubeMedium', 36, 0x66ccee, 0x4499bb);
+    this.drawIceCube('enemy_iceCubeBig', 48, 0xaadfff, 0x77bbdd);
+    this.drawYeti();
+    this.drawIceSpikeTextures();
+  }
+
+  drawIceCube(key, size, body, shade) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const pad = 2;
+    g.fillStyle(shade, 1);
+    g.fillRoundedRect(pad + 2, pad + 2, size - pad * 2, size - pad * 2, 5);
+    g.fillStyle(body, 0.92);
+    g.fillRoundedRect(pad, pad, size - pad * 2 - 2, size - pad * 2 - 2, 5);
+    g.fillStyle(0xffffff, 0.45);
+    g.fillRoundedRect(pad + 3, pad + 3, (size - pad * 2) * 0.4, (size - pad * 2) * 0.3, 3);
+    const eyeY = size * 0.42;
+    const eyeR = Math.max(2.2, size * 0.07);
+    g.fillStyle(0x224466, 1);
+    g.fillCircle(size * 0.35, eyeY, eyeR);
+    g.fillCircle(size * 0.65, eyeY, eyeR);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(size * 0.35, eyeY, eyeR * 0.4);
+    g.fillCircle(size * 0.65, eyeY, eyeR * 0.4);
+    g.generateTexture(key, size, size);
+    g.destroy();
+  }
+
+  drawYeti() {
+    const size = 108;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    // Body
+    g.fillStyle(0xb8d0e8, 1);
+    g.fillEllipse(54, 62, 78, 72);
+    g.fillStyle(0xe8f4ff, 1);
+    g.fillEllipse(54, 58, 68, 62);
+    // Belly
+    g.fillStyle(0xffffff, 0.85);
+    g.fillEllipse(54, 70, 36, 30);
+    // Head
+    g.fillStyle(0xd8e8f8, 1);
+    g.fillCircle(54, 34, 28);
+    g.fillStyle(0xffffff, 0.7);
+    g.fillCircle(54, 30, 18);
+    // Horns / tufts
+    g.fillStyle(0x88aacc, 1);
+    g.fillTriangle(28, 28, 34, 8, 42, 26);
+    g.fillTriangle(66, 26, 74, 8, 80, 28);
+    // Eyes
+    g.fillStyle(0x223344, 1);
+    g.fillCircle(44, 34, 5);
+    g.fillCircle(64, 34, 5);
+    g.fillStyle(0x88eeff, 1);
+    g.fillCircle(44, 34, 2);
+    g.fillCircle(64, 34, 2);
+    // Arms
+    g.fillStyle(0xc8dcec, 1);
+    g.fillEllipse(18, 62, 22, 16);
+    g.fillEllipse(90, 62, 22, 16);
+    g.generateTexture('enemy_yeti', size, size);
+    g.destroy();
+  }
+
+  drawIceSpikeTextures() {
+    // Obstacle spike (taller)
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0x6a9ec8, 1);
+      g.fillTriangle(20, 64, 8, 18, 32, 18);
+      g.fillStyle(0xcceeff, 1);
+      g.fillTriangle(20, 60, 12, 20, 28, 20);
+      g.fillStyle(0xffffff, 0.75);
+      g.fillTriangle(20, 52, 16, 22, 24, 22);
+      g.fillStyle(0x88bbdd, 0.9);
+      g.fillEllipse(20, 60, 18, 8);
+      g.generateTexture('obstacle_ice_spike', 40, 68);
+      g.destroy();
+    }
+    // Falling FX spike
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0xaaddff, 1);
+      g.fillTriangle(12, 4, 4, 36, 20, 36);
+      g.fillStyle(0xffffff, 0.8);
+      g.fillTriangle(12, 8, 8, 32, 16, 32);
+      g.generateTexture('fx_ice_spike', 24, 40);
+      g.destroy();
+    }
   }
 
   drawMagmaCube(key, size, body, shade) {
@@ -512,6 +621,31 @@ export class BootScene extends Phaser.Scene {
       }
 
       g.generateTexture(`vtile_${index}`, TILE_SIZE, TILE_SIZE);
+      g.destroy();
+    });
+
+    // Frozen Tundra: blue / white / light-blue ice floor
+    const tundra = [0x4a8ab0, 0xe8f4ff, 0x7eb8d8, 0xc8e8f8, 0x5a9cc4];
+    tundra.forEach((color, index) => {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(color, 1);
+      g.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+
+      g.fillStyle(0xffffff, 0.28);
+      for (let i = 0; i < 5; i++) {
+        const x = Phaser.Math.Between(0, TILE_SIZE - 10);
+        const y = Phaser.Math.Between(0, TILE_SIZE - 10);
+        g.fillRect(x, y, 5, 3);
+      }
+
+      g.fillStyle(0xaaddff, 0.35);
+      for (let i = 0; i < 3; i++) {
+        const x = Phaser.Math.Between(4, TILE_SIZE - 8);
+        const y = Phaser.Math.Between(4, TILE_SIZE - 8);
+        g.fillCircle(x, y, 2 + (i % 2));
+      }
+
+      g.generateTexture(`ttile_${index}`, TILE_SIZE, TILE_SIZE);
       g.destroy();
     });
   }

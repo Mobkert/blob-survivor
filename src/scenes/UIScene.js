@@ -308,6 +308,13 @@ export class UIScene extends Phaser.Scene {
     this.bossBar.setVisible(true);
     this.bossNameText.setVisible(true);
     this.bossNameText.setText(boss.enemyData?.name || 'Boss');
+    if (boss.typeId === 'yeti') {
+      this.bossNameText.setColor('#aaddff');
+    } else if (boss.typeId === 'kingMagmaCube') {
+      this.bossNameText.setColor('#ffaa66');
+    } else {
+      this.bossNameText.setColor('#ffcc88');
+    }
     this.updateBossBar(boss);
   }
 
@@ -318,7 +325,11 @@ export class UIScene extends Phaser.Scene {
     }
     const ratio = Math.max(0, boss.hp / boss.maxHp);
     this.bossBar.width = 500 * ratio;
-    this.bossBar.setFillStyle(ratio > 0.5 ? 0xcc3344 : ratio > 0.25 ? 0xcc8844 : 0xaa2222);
+    if (boss.typeId === 'yeti') {
+      this.bossBar.setFillStyle(ratio > 0.5 ? 0x4488cc : ratio > 0.25 ? 0x66aadd : 0x2266aa);
+    } else {
+      this.bossBar.setFillStyle(ratio > 0.5 ? 0xcc3344 : ratio > 0.25 ? 0xcc8844 : 0xaa2222);
+    }
   }
 
   hideBossBar() {

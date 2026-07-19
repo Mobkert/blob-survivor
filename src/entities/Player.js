@@ -45,6 +45,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.burnEndTime = 0;
     this.burnTickTime = 0;
     this.burnDamage = 0;
+    this.chillUntil = 0;
+    this.chillStrength = 1;
+    this.freezeUntil = 0;
+    this.iceCubeSprite = scene.add
+      .rectangle(0, 0, 40, 44, 0xaaddff, 0.45)
+      .setStrokeStyle(2, 0xffffff, 0.85)
+      .setDepth(13)
+      .setVisible(false);
   }
 
   syncStats() {
@@ -145,6 +153,26 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (!this.burnTickTime || this.burnTickTime < time) this.burnTickTime = time;
   }
 
+  applyChill(time, ms = 1600, strength = 0.5) {
+    this.chillUntil = Math.max(this.chillUntil || 0, time + ms);
+    this.chillStrength = Math.min(this.chillStrength || 1, strength);
+    this.setTint(0x88ccff);
+  }
+
+  applyFreeze(time, ms = 500) {
+    this.freezeUntil = Math.max(this.freezeUntil || 0, time + ms);
+    this.setTint(0xccf0ff);
+    if (this.iceCubeSprite) {
+      this.iceCubeSprite.setVisible(true);
+      this.iceCubeSprite.setPosition(this.x, this.y);
+    }
+  }
+
+  applyKnockback(angle, force = 400) {
+    this.externalVx = (this.externalVx || 0) + Math.cos(angle) * force;
+    this.externalVy = (this.externalVy || 0) + Math.sin(angle) * force;
+  }
+
   tickBurn(time) {
     if (time >= this.burnEndTime) return;
     if (time < this.burnTickTime) return;
@@ -167,30 +195,51 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.syncStats();
     this.tickBurn(time);
 
-    const speed = getMoveSpeed(this.playerState, time);
-    let vx = 0;
-    let vy = 0;
-
-    if (cursors.W.isDown) vy -= 1;
-    if (cursors.S.isDown) vy += 1;
-    if (cursors.A.isDown) vx -= 1;
-    if (cursors.D.isDown) vx += 1;
-
-    if (vx !== 0 || vy !== 0) {
-      const len = Math.hypot(vx, vy);
-      vx = (vx / len) * speed;
-      vy = (vy / len) * speed;
+    if (this.iceCubeSprite) {
+      this.iceCubeSprite.setPosition(this.x, this.y);
+      if (time >= this.freezeUntil) this.iceCubeSprite.setVisible(false);
     }
 
-    vx += this.externalVx || 0;
-    vy += this.externalVy || 0;
-    this.externalVx *= 0.72;
-    this.externalVy *= 0.72;
-    if (Math.abs(this.externalVx) < 2) this.externalVx = 0;
-    if (Math.abs(this.externalVy) < 2) this.externalVy = 0;
+    const frozen = time < this.freezeUntil;
+    if (frozen) {
+      this.setVelocity(0, 0);
+      this.externalVx = 0;
+      this.externalVy = 0;
+      this.updateWeaponVisuals(pointer, time);
+    } else {
+      let speed = getMoveSpeed(this.playerState, time);
+      if (time < this.chillUntil) {
+        speed *= this.chillStrength || 0.5;
+        this.setTint(0x88ccff);
+      } else if (this.chillStrength < 1) {
+        this.chillStrength = 1;
+        if (time >= this.burnEndTime) this.clearTint();
+      }
 
-    this.setVelocity(vx, vy);
-    this.updateWeaponVisuals(pointer, time);
+      let vx = 0;
+      let vy = 0;
+
+      if (cursors.W.isDown) vy -= 1;
+      if (cursors.S.isDown) vy += 1;
+      if (cursors.A.isDown) vx -= 1;
+      if (cursors.D.isDown) vx += 1;
+
+      if (vx !== 0 || vy !== 0) {
+        const len = Math.hypot(vx, vy);
+        vx = (vx / len) * speed;
+        vy = (vy / len) * speed;
+      }
+
+      vx += this.externalVx || 0;
+      vy += this.externalVy || 0;
+      this.externalVx *= 0.72;
+      this.externalVy *= 0.72;
+      if (Math.abs(this.externalVx) < 2) this.externalVx = 0;
+      if (Math.abs(this.externalVy) < 2) this.externalVy = 0;
+
+      this.setVelocity(vx, vy);
+      this.updateWeaponVisuals(pointer, time);
+    }
 
     // Guest shield visuals are snapshot-driven; host still ticks ally shield below via tickShield.
     const guestMp = this.scene.isMultiplayer && this.scene.mpRole === 'guest';
@@ -392,6 +441,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.shieldSprite.setVisible(false);
     this.throwableInFlight = false;
     this.setVelocity(0, 0);
+    this.externalVx = 0;
+    this.externalVy = 0;
+    this.chillUntil = 0;
+    this.chillStrength = 1;
+    this.freezeUntil = 0;
+    this.iceCubeSprite?.setVisible(false);
+    this.clearTint();
   }
 
   destroy(fromScene) {
@@ -399,6 +455,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.bombPreview?.destroy();
     this.grenadePreview?.destroy();
     this.shieldSprite?.destroy();
+    this.iceCubeSprite?.destroy();
     super.destroy(fromScene);
   }
 }

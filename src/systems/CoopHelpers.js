@@ -12,6 +12,8 @@ import { Wizard, isWizardType } from '../entities/Wizard.js';
 import { MagmaCube, isMagmaType } from '../entities/MagmaCube.js';
 import { GoblinKing } from '../entities/GoblinKing.js';
 import { KingMagmaCube } from '../entities/KingMagmaCube.js';
+import { Yeti } from '../entities/Yeti.js';
+import { IceCube, isIceCubeType } from '../entities/IceCube.js';
 import { snapshotCoopVfx, serializeBossTelegraph, applyGuestVfxZones, applyGuestEnemyTelegraph } from './CoopNet.js';
 
 export function initMultiplayerFlags(scene, data) {
@@ -45,6 +47,9 @@ export function setupMultiplayerPlayers(scene) {
   scene.ally.setTint(0xffaa66);
   scene.ally.hp = getMaxHp(scene.allyState);
   scene.ally.maxHp = getMaxHp(scene.allyState);
+  if (scene.iceSpikes) {
+    scene.physics.add.collider(scene.ally, scene.iceSpikes);
+  }
 
   scene.sharedMaxHp = Math.max(scene.player.maxHp, scene.ally.maxHp);
   scene.sharedHp = scene.sharedMaxHp;
@@ -319,8 +324,10 @@ function spawnGuestEnemy(scene, e) {
   let enemy;
   if (e.type === 'goblinKing') enemy = new GoblinKing(scene, e.x, e.y, 7);
   else if (e.type === 'kingMagmaCube') enemy = new KingMagmaCube(scene, e.x, e.y, 7);
+  else if (e.type === 'yeti') enemy = new Yeti(scene, e.x, e.y, 7);
   else if (isWizardType(e.type)) enemy = new Wizard(scene, e.x, e.y, e.type, 1);
   else if (isMagmaType(e.type)) enemy = new MagmaCube(scene, e.x, e.y, e.type, 1);
+  else if (isIceCubeType(e.type)) enemy = new IceCube(scene, e.x, e.y, e.type, 1);
   else enemy = new Enemy(scene, e.x, e.y, e.type, 1);
   enemy._netId = e.id;
   enemy.body.enable = false;
