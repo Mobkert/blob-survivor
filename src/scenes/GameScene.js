@@ -408,18 +408,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   applyContinueLoadout(carry) {
-    // Keep Plains XP level; start from base damage (1) before the 4 cards apply.
+    // Keep Plains XP level; keep half of the previous run's damage, then apply the 4 cards.
     this.playerState.level = Math.max(1, Number(carry.level) || 1);
     this.playerState.xp = Math.max(0, Number(carry.xp) || 0);
-    this.playerState.damageMultiplier = 1;
-    this.playerState.rangedDamageBonus = 0;
-    this.playerState.meleeDamageBonus = 0;
-    this.playerState.bigDamageBonus = 0;
+
+    const prevMult = Math.max(1, Number(carry.damageMultiplier) || 1);
+    this.playerState.damageMultiplier = 1 + (prevMult - 1) * 0.5;
+    this.playerState.rangedDamageBonus = Math.max(0, (Number(carry.rangedDamageBonus) || 0) * 0.5);
+    this.playerState.meleeDamageBonus = Math.max(0, (Number(carry.meleeDamageBonus) || 0) * 0.5);
+    this.playerState.bigDamageBonus = Math.max(0, (Number(carry.bigDamageBonus) || 0) * 0.5);
     this.playerState.fortuneFlat = 0;
     this.playerState.fortuneMod = 1;
 
     if (carry.weapon) {
-      this.playerState.weapon = { ...carry.weapon, damage: 1 };
+      const prevDmg = Math.max(1, Number(carry.weapon.damage) || 1);
+      this.playerState.weapon = {
+        ...carry.weapon,
+        damage: Math.max(1, Math.round(prevDmg * 0.5)),
+      };
     }
 
     const ids = Array.isArray(carry.cardIds) ? carry.cardIds : [];
@@ -566,6 +572,10 @@ export class GameScene extends Phaser.Scene {
       canContinue: this.levelId === 'plains' && !this.isMultiplayer,
       continueWeapon: this.playerState.weapon ? { ...this.playerState.weapon } : null,
       continueCards: [...(this.playerState.runPowerups || [])],
+      continueDamageMultiplier: this.playerState.damageMultiplier || 1,
+      continueRangedDamageBonus: this.playerState.rangedDamageBonus || 0,
+      continueMeleeDamageBonus: this.playerState.meleeDamageBonus || 0,
+      continueBigDamageBonus: this.playerState.bigDamageBonus || 0,
     });
   }
 

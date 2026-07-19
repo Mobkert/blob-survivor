@@ -616,6 +616,10 @@ export class UIScene extends Phaser.Scene {
         cardIds: Array.isArray(data.continueCards) ? data.continueCards : [],
         level: data.playerLevel || 1,
         xp: data.playerXp || 0,
+        damageMultiplier: data.continueDamageMultiplier || 1,
+        rangedDamageBonus: data.continueRangedDamageBonus || 0,
+        meleeDamageBonus: data.continueMeleeDamageBonus || 0,
+        bigDamageBonus: data.continueBigDamageBonus || 0,
       };
       this.continueBtn.setVisible(true);
       this.continueText.setVisible(true);
@@ -668,14 +672,14 @@ export class UIScene extends Phaser.Scene {
       .filter(Boolean);
 
     if (cards.length === 0) {
-      this.startVolcanicContinue(pending.weapon, [], pending.level, pending.xp);
+      this.startVolcanicContinue(pending.weapon, [], pending.level, pending.xp, pending);
       return;
     }
 
-    this.showContinueCardPick(cards, pending.weapon, pending.level, pending.xp);
+    this.showContinueCardPick(cards, pending.weapon, pending.level, pending.xp, pending);
   }
 
-  showContinueCardPick(cards, weapon, level, xp) {
+  showContinueCardPick(cards, weapon, level, xp, damageCarry = null) {
     this.hideCardPick();
     this.continuePickMode = true;
     this.continueSelected = new Set();
@@ -683,6 +687,7 @@ export class UIScene extends Phaser.Scene {
     this.continuePickWeapon = weapon;
     this.continuePickLevel = level || 1;
     this.continuePickXp = xp || 0;
+    this.continueDamageCarry = damageCarry || null;
     this.continuePickNeeded = Math.min(CONTINUE_PICK_COUNT, cards.length);
 
     this.cardPickGroup.setVisible(true);
@@ -707,7 +712,7 @@ export class UIScene extends Phaser.Scene {
       .text(
         width / 2,
         92,
-        `Keep level ${this.continuePickLevel}. Damage resets to 1, then your 4 cards apply.\nYou keep ${weaponName} until wave 5, then you can change.`,
+        `Keep level ${this.continuePickLevel}. You keep half your Plains damage, then your 4 cards apply.\nYou keep ${weaponName} until wave 5, then you can change.`,
         {
           fontFamily: 'Arial',
           fontSize: '16px',
@@ -858,11 +863,12 @@ export class UIScene extends Phaser.Scene {
     const weapon = this.continuePickWeapon;
     const level = this.continuePickLevel;
     const xp = this.continuePickXp;
+    const damageCarry = this.continueDamageCarry;
     this.hideCardPick();
-    this.startVolcanicContinue(weapon, cardIds, level, xp);
+    this.startVolcanicContinue(weapon, cardIds, level, xp, damageCarry);
   }
 
-  startVolcanicContinue(weapon, cardIds, level = 1, xp = 0) {
+  startVolcanicContinue(weapon, cardIds, level = 1, xp = 0, damageCarry = null) {
     this.pendingContinue = null;
     this.continuePickMode = false;
     this.hideCardPick();
@@ -875,10 +881,14 @@ export class UIScene extends Phaser.Scene {
       levelId: 'volcanic',
       continueCarry: {
         continued: true,
-        weapon: weapon ? { ...weapon, damage: 1 } : null,
+        weapon: weapon ? { ...weapon } : null,
         cardIds: [...cardIds],
         level: Math.max(1, Number(level) || 1),
         xp: Math.max(0, Number(xp) || 0),
+        damageMultiplier: damageCarry?.damageMultiplier || 1,
+        rangedDamageBonus: damageCarry?.rangedDamageBonus || 0,
+        meleeDamageBonus: damageCarry?.meleeDamageBonus || 0,
+        bigDamageBonus: damageCarry?.bigDamageBonus || 0,
       },
     });
   }
