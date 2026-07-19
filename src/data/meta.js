@@ -198,6 +198,48 @@ export function clearSaveSlot(index) {
   return listSaveSlots();
 }
 
+/** Raw meta for one slot (null if empty). */
+export function getSlotMeta(index) {
+  const i = Math.max(0, Math.min(SAVE_SLOT_COUNT - 1, Number(index) || 0));
+  const bank = loadSaveBank();
+  return bank.slots[i] ? cloneMeta(bank.slots[i]) : null;
+}
+
+/** First empty slot index, or -1. */
+export function findEmptySlotIndex() {
+  const bank = loadSaveBank();
+  for (let i = 0; i < SAVE_SLOT_COUNT; i += 1) {
+    if (!bank.slots[i]) return i;
+  }
+  // Treat "fresh" active-looking empty progress as empty for restore targets.
+  for (let i = 0; i < SAVE_SLOT_COUNT; i += 1) {
+    const s = bank.slots[i];
+    if (
+      s &&
+      (s.coins || 0) === 0 &&
+      (s.diamonds || 0) === 0 &&
+      (!s.unlocked || s.unlocked.length === 0) &&
+      (!s.unlockedWeapons || s.unlockedWeapons.length === 0) &&
+      (!s.completedLevels || s.completedLevels.length === 0)
+    ) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/** Write cloud/imported meta into a slot (does not switch active). */
+export function writeMetaToSlot(index, meta) {
+  const i = Math.max(0, Math.min(SAVE_SLOT_COUNT - 1, Number(index) || 0));
+  const bank = loadSaveBank();
+  bank.slots[i] = {
+    ...cloneMeta(meta),
+    updatedAt: Date.now(),
+  };
+  saveSaveBank(bank);
+  return listSaveSlots();
+}
+
 export function addCoins(amount) {
   const meta = loadMeta();
   meta.coins += Math.max(0, Math.floor(amount));
