@@ -17,9 +17,10 @@ import { FxPool } from '../systems/FxPool.js';
 import { Music } from '../systems/MusicManager.js';
 import { buildSwampPonds, updateSwampPlayerHazards } from '../systems/SwampHazards.js';
 import { getLevel } from '../data/levels.js';
-import { addCoins, addDiamonds, markLevelComplete } from '../data/meta.js';
+import { addCoins, addDiamonds, markLevelComplete, getWeaponEnchant } from '../data/meta.js';
 import { getPowerup } from '../data/powerups.js';
 import { getWeapon, getTundraUnlockOptions } from '../data/weapons.js';
+import { applyEnchantToWeapon } from '../data/enchants.js';
 import { getSwampUnlockOptions } from '../data/shop.js';
 import { clearActiveNetplay } from '../systems/NetplayManager.js';
 import {
@@ -426,9 +427,12 @@ export class GameScene extends Phaser.Scene {
     this.playerState.fortuneMod = 1;
 
     if (carry.weapon) {
-      const prevDmg = Math.max(1, Number(carry.weapon.damage) || 1);
+      const base = getWeapon(carry.weapon.id) || { ...carry.weapon };
+      const saved = getWeaponEnchant(base.id);
+      const enchanted = applyEnchantToWeapon({ ...base }, saved);
+      const prevDmg = Math.max(1, Number(enchanted.damage) || 1);
       this.playerState.weapon = {
-        ...carry.weapon,
+        ...enchanted,
         damage: Math.max(1, Math.round(prevDmg * 0.5)),
       };
     }
@@ -602,6 +606,11 @@ export class GameScene extends Phaser.Scene {
     this.waveTransitionLock = true;
 
     try {
+      if (this.playerState.weapon?.enchantAscendant) {
+        this.playerState.enchantAscendantStacks =
+          (this.playerState.enchantAscendantStacks || 0) + 1;
+      }
+
       this.gameState = 'wave_pause';
       this.events.emit('hud-update');
 

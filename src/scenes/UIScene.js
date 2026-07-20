@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { xpToNextLevel, GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
 import { getPowerup } from '../data/powerups.js';
-import { loadMeta } from '../data/meta.js';
+import { loadMeta, getWeaponEnchant } from '../data/meta.js';
+import { getEnchant, getRarity } from '../data/enchants.js';
 import { isPremiumShopCard } from '../data/shop.js';
 import { clearActiveNetplay } from '../systems/NetplayManager.js';
 
@@ -482,13 +483,33 @@ export class UIScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    const kids = [bg, icon, name, category, desc];
+
+    // Weapon forge enchant badge
+    if (card.type === 'ranged' || card.type === 'melee' || card.type === 'big') {
+      const saved = getWeaponEnchant(card.id);
+      if (saved) {
+        const ench = getEnchant(saved.enchantId);
+        const rar = getRarity(saved.rarityId);
+        const badge = this.add
+          .text(x, y + h / 2 - 22, ench?.name || 'Enchanted', {
+            fontFamily: 'Arial',
+            fontSize: '13px',
+            color: rar?.color || '#ffd090',
+            fontStyle: 'bold',
+          })
+          .setOrigin(0.5);
+        kids.push(badge);
+      }
+    }
+
     bg.on('pointerover', () => bg.setFillStyle(hover, 0.98));
     bg.on('pointerout', () => bg.setFillStyle(fill, 0.98));
     bg.on('pointerdown', () => {
       if (this.cardPickCallback) this.cardPickCallback(card);
     });
 
-    this.cardPickGroup.add([bg, icon, name, category, desc]);
+    this.cardPickGroup.add(kids);
     this.cardPickPanels.push(bg);
   }
 
@@ -530,7 +551,10 @@ export class UIScene extends Phaser.Scene {
     );
 
     const weaponName = state.weapon ? state.weapon.name : 'None';
-    this.weaponText.setText(`Weapon: ${weaponName}`);
+    const enchName = state.weapon?.enchant?.name;
+    this.weaponText.setText(
+      enchName ? `Weapon: ${weaponName} [${enchName}]` : `Weapon: ${weaponName}`,
+    );
 
     if (gs.isMultiplayer) {
       this.coopText.setVisible(true);

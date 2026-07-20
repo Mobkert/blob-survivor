@@ -1,6 +1,7 @@
 import { pickWeaponCards } from '../data/weapons.js';
 import { pickPowerupCards } from '../data/powerups.js';
-import { unlockWeapon, unlockShopItem } from '../data/meta.js';
+import { unlockWeapon, unlockShopItem, getWeaponEnchant } from '../data/meta.js';
+import { applyEnchantToWeapon } from '../data/enchants.js';
 
 export class CardManager {
   /**
@@ -94,7 +95,9 @@ export class CardManager {
       }
       this.gameScene.events.emit('boss-message', `${card.name} unlocked for future runs!`);
     } else if (this.mode === 'weapon') {
-      this.playerState.weapon = { ...card };
+      const saved = getWeaponEnchant(card.id);
+      this.playerState.weapon = applyEnchantToWeapon({ ...card }, saved);
+      this.gameScene.player?.syncStats?.();
     } else if (card.apply) {
       card.apply(this.playerState);
       if (!this.playerState.runPowerups) this.playerState.runPowerups = [];

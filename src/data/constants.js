@@ -133,6 +133,7 @@ export function createPlayerState() {
     crowPeck: false,
     /** Powerup card ids picked this run (for Plains → Volcanic continue). */
     runPowerups: [],
+    enchantAscendantStacks: 0,
   };
 }
 

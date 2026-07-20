@@ -17,6 +17,13 @@ export class BootScene extends Phaser.Scene {
     this.load.image('art_weapon_spear', 'images/weapon_spear_art.png');
     this.load.image('art_weapon_mace', 'images/weapon_mace_art.png');
     this.load.image('art_weapon_molotov', 'images/weapon_molotov_art.png');
+
+    this.load.image('icon_diamond_lime', 'images/icon_diamond_lime.png');
+    this.load.image('icon_diamond_cyan', 'images/icon_diamond_cyan.png');
+    this.load.image('icon_diamond_magenta', 'images/icon_diamond_magenta.png');
+    this.load.image('icon_diamond_navy', 'images/icon_diamond_navy.png');
+    this.load.image('icon_diamond_red', 'images/icon_diamond_red.png');
+    this.load.image('icon_diamond_black', 'images/icon_diamond_black.png');
   }
 
   create() {
@@ -39,6 +46,7 @@ export class BootScene extends Phaser.Scene {
     this.createCardPickupTexture();
     this.createSettingsGearIcon();
     this.createLevelIcons();
+    this.createForgeBookTexture();
   }
 
   createLevelIcons() {
@@ -151,6 +159,34 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0x1a2a14, 1);
     g.fillCircle(16, 16, 4);
     g.generateTexture('icon_settings_gear', 32, 32);
+    g.destroy();
+  }
+
+  createForgeBookTexture() {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    // Cover
+    g.fillStyle(0x3a2414, 1);
+    g.fillRoundedRect(16, 8, 96, 120, 6);
+    g.fillStyle(0x5a3820, 1);
+    g.fillRoundedRect(20, 12, 88, 112, 4);
+    // Spine
+    g.fillStyle(0x2a180c, 1);
+    g.fillRect(16, 8, 14, 120);
+    g.fillStyle(0xc8a050, 1);
+    g.fillRect(28, 8, 3, 120);
+    // Pages
+    g.fillStyle(0xf0e6d0, 1);
+    g.fillRoundedRect(36, 18, 66, 100, 3);
+    g.lineStyle(2, 0xd4c4a0, 1);
+    for (let i = 0; i < 6; i++) {
+      g.lineBetween(44, 32 + i * 14, 92, 32 + i * 14);
+    }
+    // Gem clasp
+    g.fillStyle(0x66ccee, 1);
+    g.fillCircle(68, 68, 10);
+    g.fillStyle(0xa8eeff, 1);
+    g.fillCircle(65, 65, 4);
+    g.generateTexture('forge_book', 128, 136);
     g.destroy();
   }
 

@@ -37,21 +37,37 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.createButton(width / 2, height * 0.38, 'Levels', () => {
+    this.createButton(width / 2, height * 0.36, 'Levels', () => {
       this.scene.start('LevelsScene');
     });
 
-    this.createButton(width / 2, height * 0.48, 'Shop', () => {
+    this.createButton(width / 2, height * 0.45, 'Shop', () => {
       this.scene.start('ShopScene');
     });
 
-    this.createButton(width / 2, height * 0.58, 'Deck', () => {
+    this.createButton(width / 2, height * 0.54, 'Deck', () => {
       this.scene.start('DeckScene');
     });
 
+    const forgeBtn = this.createButton(
+      width / 2,
+      height * 0.63,
+      'Forge',
+      () => {
+        this.scene.start('ForgeScene');
+      },
+      false,
+      {
+        color: 0x5a3a18,
+        hoverColor: 0x7a5028,
+        stroke: 0xc8a060,
+      },
+    );
+    this.addForgeNewUpdateBadge(forgeBtn);
+
     this.createButton(
       width / 2,
-      height * 0.68,
+      height * 0.72,
       'Saves',
       () => {
         this.scene.start('SavesScene');
@@ -66,7 +82,7 @@ export class MenuScene extends Phaser.Scene {
     );
 
     this.add
-      .text(width / 2, height * 0.77, `Coins: ${this.getCoins()}  ·  Slot ${getActiveSlotIndex() + 1}`, {
+      .text(width / 2, height * 0.81, `Coins: ${this.getCoins()}  ·  Slot ${getActiveSlotIndex() + 1}`, {
         fontFamily: 'Arial',
         fontSize: '18px',
         color: '#ffd76a',
@@ -76,7 +92,7 @@ export class MenuScene extends Phaser.Scene {
     const unlocked = loadMeta().unlocked || [];
     if (unlocked.includes('fortune') || unlocked.some((id) => ShopItems[id]?.name === 'Fortune')) {
       this.add
-        .text(width / 2, height * 0.83, 'Fortune needs a ranged weapon to appear', {
+        .text(width / 2, height * 0.86, 'Fortune needs a ranged weapon to appear', {
           fontFamily: 'Arial',
           fontSize: '14px',
           color: '#ffd700',
@@ -85,7 +101,7 @@ export class MenuScene extends Phaser.Scene {
     }
 
     this.add
-      .text(width / 2, height * 0.92, 'WASD move | LMB attack | RMB shield | Q special', {
+      .text(width / 2, height * 0.94, 'WASD move | LMB attack | RMB shield | Q special', {
         fontFamily: 'Arial',
         fontSize: '16px',
         color: '#778877',
@@ -277,5 +293,31 @@ export class MenuScene extends Phaser.Scene {
     }
 
     return container;
+  }
+
+  addForgeNewUpdateBadge(button) {
+    const badge = this.add
+      .text(118, -22, 'New Update', {
+        fontFamily: 'Arial',
+        fontSize: '13px',
+        color: '#ffe14a',
+        fontStyle: 'bold',
+        stroke: '#5a4000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setAngle(18)
+      .setDepth(60);
+
+    button.add(badge);
+
+    this.tweens.add({
+      targets: badge,
+      scale: { from: 0.92, to: 1.18 },
+      duration: 700,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
   }
 }

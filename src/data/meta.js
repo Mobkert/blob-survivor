@@ -12,10 +12,25 @@ export function defaultMeta() {
     diamonds: 0,
     unlocked: [],
     unlockedWeapons: [],
+    /** @type {Record<string, { enchantId: string, rarityId: string }>} */
+    weaponEnchants: {},
     completedLevels: [],
     shopOfferIds: [],
     shopOfferUntil: 0,
   };
+}
+
+function cloneWeaponEnchants(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const out = {};
+  for (const [weaponId, entry] of Object.entries(raw)) {
+    if (!entry || typeof entry !== 'object' || !entry.enchantId) continue;
+    out[weaponId] = {
+      enchantId: String(entry.enchantId),
+      rarityId: String(entry.rarityId || ''),
+    };
+  }
+  return out;
 }
 
 function cloneMeta(meta) {
@@ -24,6 +39,7 @@ function cloneMeta(meta) {
     diamonds: Math.max(0, Number(meta?.diamonds) || 0),
     unlocked: Array.isArray(meta?.unlocked) ? [...meta.unlocked] : [],
     unlockedWeapons: Array.isArray(meta?.unlockedWeapons) ? [...meta.unlockedWeapons] : [],
+    weaponEnchants: cloneWeaponEnchants(meta?.weaponEnchants),
     completedLevels: Array.isArray(meta?.completedLevels) ? [...meta.completedLevels] : [],
     shopOfferIds: Array.isArray(meta?.shopOfferIds) ? [...meta.shopOfferIds] : [],
     shopOfferUntil: Number(meta?.shopOfferUntil) || 0,
@@ -220,6 +236,7 @@ export function findEmptySlotIndex() {
       (s.diamonds || 0) === 0 &&
       (!s.unlocked || s.unlocked.length === 0) &&
       (!s.unlockedWeapons || s.unlockedWeapons.length === 0) &&
+      (!s.weaponEnchants || Object.keys(s.weaponEnchants).length === 0) &&
       (!s.completedLevels || s.completedLevels.length === 0)
     ) {
       return i;
@@ -323,6 +340,26 @@ export function isWeaponUnlocked(weaponId) {
 
 export function getUnlockedWeapons() {
   return [...(loadMeta().unlockedWeapons || [])];
+}
+
+/** @returns {{ enchantId: string, rarityId: string } | null} */
+export function getWeaponEnchant(weaponId) {
+  if (!weaponId) return null;
+  const entry = loadMeta().weaponEnchants?.[weaponId];
+  return entry?.enchantId ? { ...entry } : null;
+}
+
+/** Save (or overwrite) the enchant on a weapon permanently. */
+export function setWeaponEnchant(weaponId, enchantId, rarityId) {
+  if (!weaponId || !enchantId) return loadMeta();
+  const meta = loadMeta();
+  if (!meta.weaponEnchants) meta.weaponEnchants = {};
+  meta.weaponEnchants[weaponId] = {
+    enchantId,
+    rarityId: rarityId || '',
+  };
+  saveMeta(meta);
+  return meta;
 }
 
 export { SHOP_ROTATION_MS };

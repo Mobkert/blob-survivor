@@ -69,6 +69,11 @@ export class CombatSystem {
     this.activeScorchedPools = 0;
     this.lastCrowPeck = 0;
     this.isAllyCombat = !!options.shareWith;
+    this.lastLivingSteel = 0;
+    this.orbitBladeAngle = 0;
+    this.orbitBladeGfx = null;
+    this.enchantHitCount = 0;
+    this.enchantAttackCount = 0;
 
     this.projectiles = scene.add.group();
 
@@ -404,12 +409,31 @@ export class CombatSystem {
     return base * (1 + this.playerState.blastRadiusBonus);
   }
 
+  nearestEnemy(x, y, maxDist = 9999, exclude = null) {
+    let best = null;
+    let bestDist = maxDist;
+    this.waveManager.enemies.getChildren().forEach((enemy) => {
+      if (!enemy.active || enemy.isDying || enemy === exclude) return;
+      const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = enemy;
+      }
+    });
+    return best;
+  }
+
   /** Any weapon hit — applies damage, optional on-hit explosion, kill rewards. */
   hitEnemy(enemy, baseDamage, options = {}) {
     if (!enemy.active || enemy.isDying) return false;
 
     const flat = this.playerState.fortuneFlat || 0;
-    let damage = baseDamage * getDamageMultiplier(this.playerState) + flat;
+    let damage =
+      options.exactDamage != null
+        ? options.exactDamage
+        : baseDamage * getDamageMultiplier(this.playerState) + flat;
+    const weapon = this.playerState.weapon;
+
     if (this.playerState.overclock && !options.fromCloud) {
       this.playerState.overclockHits = (this.playerState.overclockHits || 0) + 1;
       if (this.playerState.overclockHits >= 6) {
@@ -432,6 +456,39 @@ export class CombatSystem {
       damage *= 1.6;
       enemy.hexMarked = false;
       this.scene.fx?.flash(enemy.x, enemy.y, 10, 0xff66aa, 180, 28);
+    }
+
+    // —— Forge enchant damage modifiers ——
+    if (!options.fromCloud && !options.fromEnchant && weapon) {
+      if (weapon.enchantFirstBlood && enemy.maxHp > 0 && enemy.hp >= enemy.maxHp - 0.5) {
+        damage *= 1.2;
+      }
+      if (weapon.enchantMomentum && this.player?.body) {
+        const spd = Math.hypot(this.player.body.velocity.x, this.player.body.velocity.y);
+        damage *= 1 + Math.min(0.15, (spd / 280) * 0.15);
+      }
+      if (weapon.enchantBloodInk && this.player?.maxHp > 0) {
+        const missing = 1 - this.player.hp / this.player.maxHp;
+        damage *= 1 + missing * 0.55;
+      }
+      if (weapon.enchantAscendant) {
+        damage *= 1 + (this.playerState.enchantAscendantStacks || 0) * 0.06;
+      }
+      if (weapon.enchantFuseCharge) {
+        this.enchantHitCount = (this.enchantHitCount || 0) + 1;
+        if (this.enchantHitCount % 5 === 0) {
+          damage *= 2.2;
+          this.scene.fx?.flash(enemy.x, enemy.y, 14, 0xffaa44, 200, 36);
+        }
+      }
+      if (weapon.enchantFateRewrite) {
+        this.enchantHitCount = (this.enchantHitCount || 0) + 1;
+        if (this.enchantHitCount % 8 === 0) {
+          damage *= 3;
+          this.scene.fx?.flash(enemy.x, enemy.y, 16, 0xcc88ff, 220, 40);
+          options._fateRewrite = true;
+        }
+      }
     }
 
     // Big / medium ice cubes: resist melee & ranged, weak to big weapons.
@@ -471,6 +528,11 @@ export class CombatSystem {
         size: 2.5,
       });
     }
+
+    if (!options.fromCloud && !options.fromEnchant && weapon) {
+      this.applyEnchantOnHit(enemy, damage, weapon, options);
+    }
+
     const killed = enemy.takeDamage(damage);
 
     if (this.playerState.hexMark && !killed) {
@@ -491,6 +553,12 @@ export class CombatSystem {
     if (killed) {
       enemy.markDying();
       this.grantKillRewards(enemy, options);
+    } else if (!options.fromCloud && !options.fromEnchant && weapon?.enchantDeathFuse) {
+      this.scheduleDeathFuse(enemy, damage * 0.75);
+    }
+
+    if (options._fateRewrite && !options.fromEnchant) {
+      this.fateRewriteChain(enemy, damage * 0.55);
     }
 
     // Cloud ticks must not cascade into explosions (lag / freeze).
@@ -503,6 +571,173 @@ export class CombatSystem {
     }
 
     return killed;
+  }
+
+  applyEnchantOnHit(enemy, damage, weapon, options = {}) {
+    const now = this.scene.time.now;
+
+    if (weapon.enchantCoinFlick && Math.random() < weapon.enchantCoinFlick) {
+      const coin = new CoinOrb(this.scene, enemy.x + (Math.random() - 0.5) * 16, enemy.y - 8, 1);
+      this.coinOrbs.add(coin);
+    }
+
+    if (weapon.enchantRoot) {
+      enemy.sandStunUntil = now + 280;
+      enemy.applySlow?.(now, 280, 0.05);
+    }
+
+    if (weapon.enchantStagger && Math.random() < weapon.enchantStagger) {
+      enemy.sandStunUntil = now + 550;
+      this.scene.fx?.flash(enemy.x, enemy.y, 8, 0xffee88, 140, 20);
+    }
+
+    if (weapon.enchantBrand) {
+      enemy.enchantBrandedUntil = now + 2800;
+      enemy.applyBurn?.(now, 4, 2800);
+    }
+
+    if (weapon.enchantGravHook) {
+      const ang = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+      enemy.x += Math.cos(ang) * 28;
+      enemy.y += Math.sin(ang) * 28;
+    }
+
+    if (weapon.enchantMagnetBite) {
+      this.xpOrbs.getChildren().forEach((orb) => {
+        if (!orb.active) return;
+        const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, orb.x, orb.y);
+        if (d < 160) {
+          const ang = Phaser.Math.Angle.Between(orb.x, orb.y, this.player.x, this.player.y);
+          orb.x += Math.cos(ang) * 40;
+          orb.y += Math.sin(ang) * 40;
+        }
+      });
+    }
+
+    if (weapon.enchantLingeringMote) {
+      this.spawnLingeringMote(enemy.x, enemy.y, Math.max(6, damage * 0.2));
+    }
+
+    if (weapon.enchantSoftEcho && Math.random() < weapon.enchantSoftEcho) {
+      const echoDmg = damage * 0.225;
+      this.scene.time.delayedCall(180, () => {
+        if (enemy.active && !enemy.isDying) {
+          this.hitEnemy(enemy, 0, { fromEnchant: true, fromCloud: true, exactDamage: echoDmg });
+          this.scene.fx?.flash(enemy.x, enemy.y, 8, 0xaaddff, 120, 18);
+        }
+      });
+    }
+
+    if (weapon.enchantTimeEcho) {
+      const ex = enemy.x;
+      const ey = enemy.y;
+      const echoDmg = damage * 0.7;
+      this.scene.time.delayedCall(450, () => {
+        this.scene.fx?.flash(ex, ey, 12, 0x88ccff, 180, 28);
+        this.waveManager.enemies.getChildren().forEach((e) => {
+          if (!e.active || e.isDying) return;
+          if (Phaser.Math.Distance.Between(ex, ey, e.x, e.y) < 36 + (e.enemyData?.radius || 14)) {
+            this.hitEnemy(e, 0, { fromEnchant: true, fromCloud: true, exactDamage: echoDmg });
+          }
+        });
+      });
+    }
+
+    if (weapon.enchantEntropy) {
+      this.rollEntropyHit(enemy, damage);
+    }
+  }
+
+  rollEntropyHit(enemy, damage) {
+    const roll = Math.floor(Math.random() * 5);
+    const now = this.scene.time.now;
+    if (roll === 0) {
+      enemy.sandStunUntil = now + 700;
+      this.scene.fx?.flash(enemy.x, enemy.y, 10, 0xffee66, 150, 22);
+    } else if (roll === 1) {
+      const ang = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+      enemy.x += Math.cos(ang) * 40;
+      enemy.y += Math.sin(ang) * 40;
+    } else if (roll === 2) {
+      for (let i = 0; i < 3; i++) {
+        const coin = new CoinOrb(
+          this.scene,
+          enemy.x + (Math.random() - 0.5) * 28,
+          enemy.y + (Math.random() - 0.5) * 28,
+          1,
+        );
+        this.coinOrbs.add(coin);
+      }
+    } else if (roll === 3) {
+      this.player.heal(5);
+      this.scene.fx?.flash(this.player.x, this.player.y, 10, 0x66ff88, 140, 24);
+    } else {
+      this.createExplosion(enemy.x, enemy.y, damage * 0.5, 0, 55, {
+        skipAirstrike: true,
+        color: 0xaa66ff,
+      });
+    }
+  }
+
+  scheduleDeathFuse(enemy, fuseDamage) {
+    if (!enemy.active || enemy._deathFuseArmed) return;
+    enemy._deathFuseArmed = true;
+    const ex = enemy.x;
+    const ey = enemy.y;
+    this.scene.fx?.flash(ex, ey, 6, 0xff4422, 900, 16);
+    this.scene.time.delayedCall(1000, () => {
+      if (!enemy.active || enemy.isDying) {
+        this.createExplosion(ex, ey, fuseDamage, 0, 48, {
+          skipAirstrike: true,
+          color: 0xff3311,
+        });
+        return;
+      }
+      enemy._deathFuseArmed = false;
+      this.createExplosion(enemy.x, enemy.y, fuseDamage, 0, 52, {
+        skipAirstrike: true,
+        color: 0xff2200,
+      });
+    });
+  }
+
+  fateRewriteChain(source, damage) {
+    let from = source;
+    for (let i = 0; i < 2; i++) {
+      const next = this.nearestEnemy(from.x, from.y, 180, from);
+      if (!next) break;
+      this.scene.fx?.flash(next.x, next.y, 10, 0xcc88ff, 160, 22);
+      this.hitEnemy(next, 0, { fromEnchant: true, fromCloud: true, exactDamage: damage });
+      from = next;
+    }
+  }
+
+  spawnLingeringMote(x, y, tickDamage) {
+    const fx = this.scene.fx;
+    const mote = fx?.hold(x, y, 14, 0xffaa44, 0.55, 8);
+    let life = 1200;
+    const hitCd = new WeakMap();
+    const tick = this.scene.time.addEvent({
+      delay: 250,
+      loop: true,
+      callback: () => {
+        life -= 250;
+        const tnow = this.scene.time.now;
+        this.waveManager.enemies.getChildren().forEach((enemy) => {
+          if (!enemy.active || enemy.isDying) return;
+          const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+          if (d > 22 + (enemy.enemyData?.radius || 14)) return;
+          const last = hitCd.get(enemy) || 0;
+          if (tnow - last < 240) return;
+          hitCd.set(enemy, tnow);
+          this.hitEnemy(enemy, tickDamage, { fromEnchant: true, fromCloud: true });
+        });
+        if (life <= 0) {
+          tick.remove(false);
+          fx?.release(mote);
+        }
+      },
+    });
   }
 
   applyStatusEffects(enemy) {
@@ -628,6 +863,11 @@ export class CombatSystem {
       this.player.heal(Math.min(15, this.playerState.healOnKill));
     }
 
+    const weapon = this.playerState.weapon;
+    if (weapon && !options.fromEnchant) {
+      this.applyEnchantOnKill(enemy, weapon);
+    }
+
     if (this.playerState.bloodlust) {
       this.playerState.bloodlustUntil = this.scene.time.now + 2000;
     }
@@ -649,8 +889,13 @@ export class CombatSystem {
 
     if (this.playerState.lootPinata && Math.random() < 0.25) {
       const bonus = 2 + Math.floor(Math.random() * 3);
-      const coin = new CoinOrb(this.scene, enemy.x + (Math.random() - 0.5) * 24, enemy.y - 6, bonus);
-      this.coinOrbs.add(coin);
+      const bonusCoin = new CoinOrb(
+        this.scene,
+        enemy.x + (Math.random() - 0.5) * 24,
+        enemy.y - 6,
+        bonus,
+      );
+      this.coinOrbs.add(bonusCoin);
       this.scene.fx?.burst(enemy.x, enemy.y, {
         count: 5,
         color: 0xffcc66,
@@ -692,6 +937,106 @@ export class CombatSystem {
     });
 
     this.scene.events.emit('enemy-killed', enemy);
+  }
+
+  applyEnchantOnKill(enemy, weapon) {
+    if (weapon.enchantGreedKill) {
+      const bonus = weapon.enchantGreedKill;
+      const greedCoin = new CoinOrb(this.scene, enemy.x - 10, enemy.y - 6, bonus);
+      this.coinOrbs.add(greedCoin);
+    }
+
+    if (weapon.enchantSplitShard) {
+      const target = this.nearestEnemy(enemy.x, enemy.y, 320, enemy);
+      if (target) {
+        const ang = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
+        const dmg = Math.max(8, (weapon.damage || 12) * 0.7);
+        const proj = new Projectile(
+          this.scene,
+          enemy.x,
+          enemy.y,
+          ang,
+          520,
+          dmg,
+          0,
+          this.playerState,
+        );
+        this.projectiles.add(proj);
+      }
+    }
+
+    if (weapon.enchantShieldSiphon && this.player) {
+      this.player.shieldCooldownEnd = Math.max(
+        this.scene.time.now,
+        (this.player.shieldCooldownEnd || 0) - weapon.enchantShieldSiphon,
+      );
+    }
+
+    if (weapon.enchantHexBloom) {
+      const x = enemy.x;
+      const y = enemy.y;
+      const dmg = Math.max(12, (weapon.damage || 12) * 0.9);
+      this.scene.time.delayedCall(500, () => {
+        this.createExplosion(x, y, dmg, 0, 70, {
+          skipAirstrike: true,
+          color: 0xbb44ff,
+        });
+      });
+    }
+
+    if (weapon.enchantRiftKill && this.player) {
+      this.player.invulnerableUntil = this.scene.time.now + 280;
+      this.player.setAlpha(0.55);
+      this.scene.time.delayedCall(280, () => {
+        if (this.player?.active) this.player.setAlpha(1);
+      });
+      const aim = this.player.getAimPoint?.(this.scene.input.activePointer);
+      if (aim) {
+        const ang = Phaser.Math.Angle.Between(this.player.x, this.player.y, aim.x, aim.y);
+        this.player.x += Math.cos(ang) * 48;
+        this.player.y += Math.sin(ang) * 48;
+      }
+      this.scene.fx?.flash(this.player.x, this.player.y, 12, 0x8866ff, 180, 30);
+    }
+
+    if (weapon.enchantSingularityCore) {
+      this.spawnEnchantSingularity(enemy.x, enemy.y, Math.max(14, weapon.damage * 0.55));
+    }
+  }
+
+  spawnEnchantSingularity(x, y, damage) {
+    const fx = this.scene.fx;
+    const pullR = 110;
+    const core = fx?.hold(x, y, 10, 0x110022, 0.9, 11);
+    const ring = fx?.hold(x, y, 18, 0x6622aa, 0.3, 10);
+    let life = 900;
+    const tick = this.scene.time.addEvent({
+      delay: 80,
+      loop: true,
+      callback: () => {
+        life -= 80;
+        this.waveManager.enemies.getChildren().forEach((foe) => {
+          if (!foe.active || foe.isDying) return;
+          const d = Phaser.Math.Distance.Between(x, y, foe.x, foe.y);
+          if (d > pullR) return;
+          const ang = Phaser.Math.Angle.Between(foe.x, foe.y, x, y);
+          foe.x += Math.cos(ang) * 6;
+          foe.y += Math.sin(ang) * 6;
+          if (life % 240 < 80) {
+            this.hitEnemy(foe, damage * 0.25, { fromEnchant: true, fromCloud: true });
+          }
+        });
+        if (life <= 0) {
+          tick.remove(false);
+          fx?.release(core);
+          fx?.release(ring);
+          this.createExplosion(x, y, damage, 0, pullR * 0.7, {
+            skipAirstrike: true,
+            color: 0x9944ff,
+          });
+        }
+      },
+    });
   }
 
   tryDropTankCard(x, y) {
@@ -1052,18 +1397,57 @@ export class CombatSystem {
         && (this.playerState.staticCharge || 0) >= 1;
 
       this.player.markAttack(this.scene.time.now);
-      switch (weapon.type) {
-        case 'ranged':
-          this.fireRanged(angle, weapon);
-          break;
-        case 'melee':
-          this.performMelee(angle, weapon);
-          break;
-        case 'big':
-          this.performBig(aim.x, aim.y, angle, weapon);
-          break;
-        default:
-          break;
+
+      if (weapon.enchantBlinkCut) {
+        this.player.x += Math.cos(angle) * 55;
+        this.player.y += Math.sin(angle) * 55;
+        this.scene.fx?.flash(this.player.x, this.player.y, 8, 0x88ddff, 120, 20);
+      }
+
+      if (weapon.enchantAfterimage) {
+        this.spawnAfterimageZone(this.player.x, this.player.y, Math.max(8, weapon.damage * 0.35));
+      }
+
+      this.enchantAttackCount = (this.enchantAttackCount || 0) + 1;
+
+      const doFire = (fireAngle, targetX = null, targetY = null) => {
+        switch (weapon.type) {
+          case 'ranged':
+            this.fireRanged(fireAngle, weapon);
+            break;
+          case 'melee':
+            this.performMelee(fireAngle, weapon);
+            break;
+          case 'big':
+            this.performBig(
+              targetX ?? this.player.x + Math.cos(fireAngle) * 140,
+              targetY ?? this.player.y + Math.sin(fireAngle) * 140,
+              fireAngle,
+              weapon,
+            );
+            break;
+          default:
+            break;
+        }
+      };
+
+      doFire(angle, aim.x, aim.y);
+
+      if (weapon.enchantMirrorBite) {
+        const backAng = angle + Math.PI;
+        doFire(
+          backAng,
+          this.player.x + Math.cos(backAng) * 140,
+          this.player.y + Math.sin(backAng) * 140,
+        );
+      }
+
+      if (weapon.enchantSwarmSparks) {
+        this.spawnSwarmSparks(angle, Math.max(6, weapon.damage * 0.4));
+      }
+
+      if (weapon.enchantWorldSever && this.enchantAttackCount % 6 === 0) {
+        this.worldSeverSlash(angle, Math.max(18, weapon.damage * 1.1));
       }
 
       if (dischargeStatic) {
@@ -1232,6 +1616,7 @@ export class CombatSystem {
   }
 
   spawnRangedProjectile(angle, weapon, damage) {
+    const pierce = this.playerState.piercing || 0;
     const proj = new Projectile(
       this.scene,
       this.player.x + Math.cos(angle) * 20,
@@ -1239,7 +1624,7 @@ export class CombatSystem {
       angle,
       weapon.projectileSpeed,
       damage,
-      this.playerState.piercing,
+      pierce,
       this.playerState,
     );
     proj.bouncesLeft = this.playerState.ricochet || 0;
@@ -1974,6 +2359,8 @@ export class CombatSystem {
       if (orb.active) orb.update(this.player);
     });
 
+    this.updateEnchantPassives(now);
+
     if (this.player?.body) {
       const speed = Math.hypot(this.player.body.velocity.x, this.player.body.velocity.y);
       if (this.playerState.focusLens) {
@@ -2257,6 +2644,7 @@ export class CombatSystem {
   /** Wipe projectiles, crow aura, and orbs — used on death / game over. */
   clearCombatEffects() {
     this.destroyCrowAura();
+    this.destroyOrbitBlades();
     this.projectiles.clear(true, true);
     this.clearOrbs();
     this.activeToxicClouds = 0;
@@ -2264,5 +2652,151 @@ export class CombatSystem {
     this.activePhoenixPlumes = 0;
     this.activeScorchedPools = 0;
     this.fortuneBusy = false;
+  }
+
+  spawnAfterimageZone(x, y, tickDamage) {
+    const fx = this.scene.fx;
+    const ghost = fx?.hold(x, y, 18, 0xaaddff, 0.35, 7);
+    let life = 700;
+    const hitCd = new WeakMap();
+    const tick = this.scene.time.addEvent({
+      delay: 200,
+      loop: true,
+      callback: () => {
+        life -= 200;
+        const tnow = this.scene.time.now;
+        this.waveManager.enemies.getChildren().forEach((enemy) => {
+          if (!enemy.active || enemy.isDying) return;
+          const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+          if (d > 28 + (enemy.enemyData?.radius || 14)) return;
+          const last = hitCd.get(enemy) || 0;
+          if (tnow - last < 180) return;
+          hitCd.set(enemy, tnow);
+          this.hitEnemy(enemy, tickDamage, { fromEnchant: true, fromCloud: true });
+        });
+        if (life <= 0) {
+          tick.remove(false);
+          fx?.release(ghost);
+        }
+      },
+    });
+  }
+
+  spawnSwarmSparks(angle, damage) {
+    for (let i = 0; i < 2; i++) {
+      const spread = (i === 0 ? -1 : 1) * 0.35;
+      const a = angle + spread;
+      const proj = new Projectile(
+        this.scene,
+        this.player.x + Math.cos(a) * 16,
+        this.player.y + Math.sin(a) * 16,
+        a,
+        380,
+        damage,
+        0,
+        this.playerState,
+      );
+      proj.setTint(0xffcc66);
+      // Mild homing: retarget once mid-flight
+      this.scene.time.delayedCall(180, () => {
+        if (!proj.active) return;
+        const target = this.nearestEnemy(proj.x, proj.y, 260);
+        if (!target) return;
+        const ang = Phaser.Math.Angle.Between(proj.x, proj.y, target.x, target.y);
+        proj.setVelocity(Math.cos(ang) * 420, Math.sin(ang) * 420);
+        proj.rotation = ang;
+      });
+      this.projectiles.add(proj);
+    }
+  }
+
+  worldSeverSlash(angle, damage) {
+    const px = this.player.x;
+    const py = this.player.y;
+    const len = 520;
+    const ex = px + Math.cos(angle) * len;
+    const ey = py + Math.sin(angle) * len;
+    this.scene.fx?.bolt?.(px, py, ex, ey, 0xffeecc, 180);
+    // Fallback line flash
+    this.scene.fx?.flash(px + Math.cos(angle) * 80, py + Math.sin(angle) * 80, 10, 0xffeebb, 160, 40);
+
+    this.waveManager.enemies.getChildren().forEach((enemy) => {
+      if (!enemy.active || enemy.isDying) return;
+      // Distance from point to segment
+      const dx = ex - px;
+      const dy = ey - py;
+      const t = Math.max(
+        0,
+        Math.min(1, ((enemy.x - px) * dx + (enemy.y - py) * dy) / (dx * dx + dy * dy || 1)),
+      );
+      const cx = px + t * dx;
+      const cy = py + t * dy;
+      const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, cx, cy);
+      if (dist <= 28 + (enemy.enemyData?.radius || 14)) {
+        this.hitEnemy(enemy, damage, { fromEnchant: true });
+      }
+    });
+  }
+
+  updateEnchantPassives(now) {
+    const weapon = this.playerState.weapon;
+    if (!weapon || !this.player?.active) {
+      this.destroyOrbitBlades();
+      return;
+    }
+
+    if (weapon.enchantOrbitBlades) {
+      this.updateOrbitBlades(now);
+    } else {
+      this.destroyOrbitBlades();
+    }
+
+    if (weapon.enchantLivingSteel && now - this.lastLivingSteel > 1100) {
+      this.lastLivingSteel = now;
+      const target = this.nearestEnemy(this.player.x, this.player.y, 340);
+      if (target) {
+        const ang = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
+        const dmg = Math.max(6, weapon.damage * 0.55);
+        this.scene.fx?.bolt?.(this.player.x, this.player.y, target.x, target.y, 0xc8a0ff, 90);
+        this.hitEnemy(target, dmg, { fromEnchant: true });
+      }
+    }
+  }
+
+  updateOrbitBlades(now) {
+    const radius = 58;
+    this.orbitBladeAngle = (this.orbitBladeAngle || 0) + 0.09;
+    if (!this.orbitBladeGfx) {
+      this.orbitBladeGfx = [];
+      for (let i = 0; i < 3; i++) {
+        const blade = this.scene.add.circle(0, 0, 7, 0xffdd88, 0.9).setDepth(12);
+        this.orbitBladeGfx.push(blade);
+      }
+    }
+    const hitCd = this._orbitHitCd || (this._orbitHitCd = new WeakMap());
+    for (let i = 0; i < 3; i++) {
+      const a = this.orbitBladeAngle + (i * Math.PI * 2) / 3;
+      const x = this.player.x + Math.cos(a) * radius;
+      const y = this.player.y + Math.sin(a) * radius;
+      const blade = this.orbitBladeGfx[i];
+      blade.setPosition(x, y);
+      this.waveManager.enemies.getChildren().forEach((enemy) => {
+        if (!enemy.active || enemy.isDying) return;
+        const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+        if (d > 16 + (enemy.enemyData?.radius || 14)) return;
+        const last = hitCd.get(enemy) || 0;
+        if (now - last < 220) return;
+        hitCd.set(enemy, now);
+        const dmg = Math.max(5, (this.playerState.weapon?.damage || 10) * 0.35);
+        this.hitEnemy(enemy, dmg, { fromEnchant: true, fromCloud: true });
+      });
+    }
+  }
+
+  destroyOrbitBlades() {
+    if (this.orbitBladeGfx) {
+      this.orbitBladeGfx.forEach((b) => b?.destroy?.());
+      this.orbitBladeGfx = null;
+    }
   }
 }
