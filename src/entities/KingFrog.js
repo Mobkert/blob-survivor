@@ -23,13 +23,13 @@ export class KingFrog extends Enemy {
     this.encounter = Math.max(1, Math.floor(wave / 7));
     this.damageReduction = this.encounter >= 3 ? 5 : 3;
     this.setDepth(6);
-    const r = this.enemyData.radius;
+    const r = this.enemyData.radius || 48;
     this.setCircle(r);
     this.body.setSize(r * 2, r * 2);
     this.body.setOffset((this.width - r * 2) / 2, (this.height - r * 2) / 2);
 
     this.phase = 'idle';
-    this.phaseEnd = 0;
+    this.phaseEnd = scene.time.now + 1200;
     this.moveCount = 0;
     this.lastAttack = null;
     this.pendingAttack = null;
@@ -40,7 +40,12 @@ export class KingFrog extends Enemy {
     this.farDistance = this.enemyData.farDistance || 480;
     this.attackTimers = [];
     this.heldFx = [];
+    this.airborneStartedAt = 0;
     this.telegraph = scene.add.graphics().setDepth(4);
+
+    this.setAlpha(1);
+    this.setVisible(true);
+    if (this.body) this.body.enable = true;
 
     scene.events.emit('boss-spawned', this);
   }
@@ -130,12 +135,16 @@ export class KingFrog extends Enemy {
 
     if (this.phase === 'airborne') {
       this.setVelocity(0, 0);
-      this.setAlpha(0.15);
-      if (time >= this.phaseEnd) this.landSlam(player, time);
+      // Failsafe — never stay invisible forever if land is skipped.
+      if (time >= this.phaseEnd || (this.airborneStartedAt && time - this.airborneStartedAt > 2000)) {
+        this.landSlam(player, time);
+      }
       return;
     }
 
+    this.setVisible(true);
     this.setAlpha(1);
+    if (this.body) this.body.enable = true;
     this.setVelocity(0, 0);
 
     if (this.phase === 'stun') {
@@ -276,33 +285,49 @@ export class KingFrog extends Enemy {
   startSlamJump(player, time) {
     this.phase = 'airborne';
     this.phaseEnd = time + 700;
+    this.airborneStartedAt = time;
     this.setVelocity(0, 0);
+    // Leave the ground — hide sprite & disable hits while in the air.
+    this.setVisible(false);
+    if (this.body) this.body.enable = false;
+
     this.fx?.burst(this.x, this.y, { count: 16, color: 0x66aa44, speed: 160, life: 320, size: 5 });
     this.fx?.flash(this.x, this.y, 30, 0x88cc55, 280, 70);
-    // Shadow marker at land zone
-    const shadow = this.holdTracked(this.fx?.hold(this.lockedX, this.lockedY, 110, 0xff2222, 0.25, 4));
-    if (shadow) shadow.setStrokeStyle(3, 0xff5555, 0.8);
+    // Clear landing marker at impact zone (always visible).
+    const shadow = this.holdTracked(this.fx?.hold(this.lockedX, this.lockedY, 110, 0xff2222, 0.35, 4));
+    if (shadow) shadow.setStrokeStyle(3, 0xff5555, 0.95);
   }
 
   landSlam(player, time) {
-    this.heldFx.forEach((obj) => this.fx?.release(obj));
-    this.heldFx.length = 0;
+    try {
+      this.heldFx.forEach((obj) => this.fx?.release(obj));
+      this.heldFx.length = 0;
 
-    this.x = this.lockedX;
-    this.y = this.lockedY;
-    this.setAlpha(1);
-    this.fx?.burst(this.x, this.y, { count: 28, color: 0x55aa33, speed: 220, life: 420, size: 7 });
-    this.fx?.burst(this.x, this.y, { count: 14, color: 0xaaff66, speed: 160, life: 300, size: 4 });
-    this.fx?.flash(this.x, this.y, 40, 0x88ee55, 360, 120);
-    this.scene.cameras.main.shake(220, 0.01);
+      this.x = this.lockedX;
+      this.y = this.lockedY;
+      this.setVisible(true);
+      this.setAlpha(1);
+      if (this.body) this.body.enable = true;
+      this.airborneStartedAt = 0;
 
-    if (player?.active) {
-      const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
-      if (dist <= 115) {
-        player.takeDamage(this.attackDamage + 8, time);
-        const ang = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
-        player.applyKnockback?.(ang, 520);
+      this.fx?.burst(this.x, this.y, { count: 28, color: 0x55aa33, speed: 220, life: 420, size: 7 });
+      this.fx?.burst(this.x, this.y, { count: 14, color: 0xaaff66, speed: 160, life: 300, size: 4 });
+      this.fx?.flash(this.x, this.y, 40, 0x88ee55, 360, 120);
+      this.scene.cameras?.main?.shake?.(220, 0.01);
+
+      if (player?.active) {
+        const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+        if (dist <= 115) {
+          player.takeDamage(this.attackDamage + 8, time);
+          const ang = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
+          player.applyKnockback?.(ang, 520);
+        }
       }
+    } catch {
+      this.setVisible(true);
+      this.setAlpha(1);
+      if (this.body) this.body.enable = true;
+      this.airborneStartedAt = 0;
     }
     this.finishMove(time, 900);
   }

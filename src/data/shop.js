@@ -719,7 +719,7 @@ export const ShopItems = {
       state.meleeArcBonus = (state.meleeArcBonus || 0) + 45;
       state.meleeRangeBonus = (state.meleeRangeBonus || 0) + 30;
       state.attackSpeedBonus = (state.attackSpeedBonus || 0) + 0.3;
-      state.healOnKill = (state.healOnKill || 0) + 6;
+      state.healOnKill = Math.min(15, (state.healOnKill || 0) + 6);
       state.damageTakenMultiplier *= 1.12;
     },
   },

@@ -553,30 +553,33 @@ export class BootScene extends Phaser.Scene {
   drawKingFrog() {
     const size = 112;
     const g = this.make.graphics({ x: 0, y: 0, add: false });
+    // Dark outline so he reads on green swamp tiles
+    g.fillStyle(0x0a2008, 1);
+    g.fillCircle(56, 64, 46);
     g.fillStyle(0x226622, 1);
-    g.fillEllipse(58, 68, 88, 70);
+    g.fillCircle(56, 66, 42);
+    g.fillStyle(0x55bb33, 1);
+    g.fillCircle(56, 60, 36);
+    g.fillStyle(0xa8ee66, 0.85);
+    g.fillCircle(56, 72, 18);
+    // Head
     g.fillStyle(0x44aa33, 1);
-    g.fillEllipse(56, 64, 78, 62);
-    g.fillStyle(0x88cc55, 0.7);
-    g.fillEllipse(56, 74, 40, 28);
-    // Crown bump
-    g.fillStyle(0x66cc44, 1);
-    g.fillCircle(56, 28, 26);
+    g.fillCircle(56, 30, 24);
     g.fillStyle(0xffdd44, 1);
-    g.fillTriangle(40, 22, 48, 6, 56, 22);
-    g.fillTriangle(56, 22, 64, 6, 72, 22);
+    g.fillTriangle(40, 22, 48, 4, 56, 22);
+    g.fillTriangle(56, 22, 64, 4, 72, 22);
     g.fillTriangle(48, 18, 56, 2, 64, 18);
     // Eyes
-    g.fillStyle(0xf0ffd0, 1);
-    g.fillCircle(42, 36, 10);
-    g.fillCircle(70, 36, 10);
-    g.fillStyle(0x223311, 1);
-    g.fillCircle(42, 36, 4);
-    g.fillCircle(70, 36, 4);
+    g.fillStyle(0xffffee, 1);
+    g.fillCircle(44, 30, 9);
+    g.fillCircle(68, 30, 9);
+    g.fillStyle(0x112200, 1);
+    g.fillCircle(44, 30, 4);
+    g.fillCircle(68, 30, 4);
     // Arms
-    g.fillStyle(0x44aa33, 1);
-    g.fillEllipse(16, 70, 24, 18);
-    g.fillEllipse(96, 70, 24, 18);
+    g.fillStyle(0x338822, 1);
+    g.fillCircle(18, 68, 14);
+    g.fillCircle(94, 68, 14);
     g.generateTexture('enemy_kingFrog', size, size);
     g.destroy();
   }

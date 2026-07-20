@@ -52,14 +52,19 @@ export class WaveManager {
 
     if (isBossWave(waveNumber)) {
       let boss;
+      const px = this.player?.x || 0;
+      const py = this.player?.y || 0;
+      const ang = Math.random() * Math.PI * 2;
+      const spawnX = px + Math.cos(ang) * 260;
+      const spawnY = py + Math.sin(ang) * 260;
       if (this.levelId === 'volcanic') {
-        boss = new KingMagmaCube(this.scene, 0, 0, waveNumber);
+        boss = new KingMagmaCube(this.scene, spawnX, spawnY, waveNumber);
       } else if (this.levelId === 'tundra') {
-        boss = new Yeti(this.scene, 0, 0, waveNumber);
+        boss = new Yeti(this.scene, spawnX, spawnY, waveNumber);
       } else if (this.levelId === 'swamp') {
-        boss = new KingFrog(this.scene, 0, 0, waveNumber);
+        boss = new KingFrog(this.scene, spawnX, spawnY, waveNumber);
       } else {
-        boss = new GoblinKing(this.scene, 0, 0, waveNumber);
+        boss = new GoblinKing(this.scene, spawnX, spawnY, waveNumber);
       }
       this.enemies.add(boss);
       this.activeBoss = boss;

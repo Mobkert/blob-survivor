@@ -36,6 +36,7 @@ export function createPlayerState() {
     maxHpBonus: 0,
     maxHpMultiplier: 1,
     healOnKill: 0,
+    healOnKillStacks: 0,
     speedBonus: 0,
     poison: false,
     slowOnHit: false,

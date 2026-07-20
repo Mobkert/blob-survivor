@@ -624,7 +624,7 @@ export class CombatSystem {
     this.coinOrbs.add(coin);
 
     if (this.playerState.healOnKill > 0) {
-      this.player.heal(this.playerState.healOnKill);
+      this.player.heal(Math.min(15, this.playerState.healOnKill));
     }
 
     if (this.playerState.bloodlust) {

@@ -63,10 +63,11 @@ export const Powerups = {
     name: 'Heal on Kill',
     category: 'passive',
     color: 0x22cc66,
-    description: 'Restore 3 HP per kill.',
-    eligible: () => true,
+    description: 'Restore 3 HP per kill (max 15 from this card).',
+    eligible: (state) => (state.healOnKillStacks || 0) < 5,
     apply: (state) => {
-      state.healOnKill += 3;
+      state.healOnKillStacks = (state.healOnKillStacks || 0) + 1;
+      state.healOnKill = Math.min(15, (state.healOnKill || 0) + 3);
     },
   },
   moveSpeed: {
