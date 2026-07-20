@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene.js';
 import { LoadingScene } from './scenes/LoadingScene.js';
+import { EarnCardScene } from './scenes/EarnCardScene.js';
 import { MenuScene } from './scenes/MenuScene.js';
 import { ShopScene } from './scenes/ShopScene.js';
 import { DeckScene } from './scenes/DeckScene.js';
@@ -31,6 +32,7 @@ const config = {
   scene: [
     BootScene,
     LoadingScene,
+    EarnCardScene,
     MenuScene,
     LevelsScene,
     MultiplayerLobbyScene,

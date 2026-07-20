@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
 import { Music, bindMusicUnlock } from '../systems/MusicManager.js';
+import { shouldOfferBoggedEarn } from './EarnCardScene.js';
 
 /** Loading art is 1024x576 (same 16:9 as the game). */
 const ART_W = 1024;
@@ -122,6 +123,15 @@ export class LoadingScene extends Phaser.Scene {
         this.scene.launch(key);
       }
     });
+
+    if (this.nextScene === 'MenuScene' && shouldOfferBoggedEarn()) {
+      this.scene.start('EarnCardScene', {
+        cardId: 'bogged',
+        nextScene: 'MenuScene',
+      });
+      return;
+    }
+
     this.scene.start(this.nextScene, {
       levelId: this.levelId,
       continueCarry: this.continueCarry || null,

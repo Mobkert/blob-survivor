@@ -1,6 +1,6 @@
 import { pickWeaponCards } from '../data/weapons.js';
 import { pickPowerupCards } from '../data/powerups.js';
-import { unlockWeapon } from '../data/meta.js';
+import { unlockWeapon, unlockShopItem } from '../data/meta.js';
 
 export class CardManager {
   /**
@@ -87,7 +87,11 @@ export class CardManager {
     if (!this.isOpen) return;
 
     if (this.mode === 'unlock') {
-      unlockWeapon(card.id);
+      if (card.swampUnlock || card.unlockKind === 'shop') {
+        unlockShopItem(card.id);
+      } else {
+        unlockWeapon(card.id);
+      }
       this.gameScene.events.emit('boss-message', `${card.name} unlocked for future runs!`);
     } else if (this.mode === 'weapon') {
       this.playerState.weapon = { ...card };

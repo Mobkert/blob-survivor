@@ -9,6 +9,7 @@ import { addCoins, isUnlocked, unlockShopItem } from '../data/meta.js';
 import { ShopItems } from '../data/shop.js';
 import { CardPickup } from '../entities/CardPickup.js';
 import { broadcastMeleeArc, grantCoopCoins, registerCoopVfx, unregisterCoopVfx } from './CoopNet.js';
+import { spawnAcidPuddle } from './SwampHazards.js';
 
 const MAX_EXPLOSION_DEPTH = 2;
 
@@ -1780,11 +1781,82 @@ export class CombatSystem {
       case 'clusterBomb':
         this.clusterBomb(worldPoint.x, worldPoint.y);
         break;
+      case 'bogged':
+        this.fireBoggedBolt(angle);
+        break;
       default:
         break;
     }
 
     return true;
+  }
+
+  /** Heavy acid bolt — puddle on impact, then splits into 3 more puddle bolts. */
+  fireBoggedBolt(angle) {
+    const damage = 52 * getDamageMultiplier(this.playerState);
+    this.launchAcidBolt(this.player.x, this.player.y, angle, damage, true, 520);
+  }
+
+  launchAcidBolt(x, y, angle, damage, canSplit, maxDist) {
+    const fx = this.scene.fx;
+    const orb = fx?.hold(x, y, canSplit ? 12 : 8, 0x88ee44, 0.95, 12);
+    if (!orb) return;
+    orb.setStrokeStyle(2, canSplit ? 0xccff66 : 0xaaff55, 0.9);
+
+    const speed = canSplit ? 380 : 320;
+    let traveled = 0;
+    let px = x;
+    let py = y;
+    let done = false;
+
+    const finish = (hx, hy, hitEnemy) => {
+      if (done) return;
+      done = true;
+      fx?.release(orb);
+      tick.remove(false);
+      if (hitEnemy) this.hitEnemy(hitEnemy, damage, { fromRanged: true });
+      spawnAcidPuddle(this.scene, hx, hy, {
+        radius: canSplit ? 78 : 55,
+        tickDamage: canSplit ? 8 : 5,
+        durationMs: 2600 + Math.random() * 1000,
+      });
+      fx?.burst(hx, hy, { count: canSplit ? 14 : 8, color: 0x88ee44, speed: 140, life: 300, size: 4 });
+
+      if (canSplit) {
+        for (let i = 0; i < 3; i++) {
+          const splitAng = angle + Math.PI + ((i - 1) * Math.PI) / 2.5;
+          this.launchAcidBolt(hx, hy, splitAng, damage * 0.55, false, 280);
+        }
+      }
+    };
+
+    const tick = this.scene.time.addEvent({
+      delay: 40,
+      loop: true,
+      callback: () => {
+        if (!orb.active || (this.scene.gameState !== 'playing' && this.scene.gameState !== 'wave_pause')) {
+          fx?.release(orb);
+          tick.remove(false);
+          return;
+        }
+        px += Math.cos(angle) * speed * 0.04;
+        py += Math.sin(angle) * speed * 0.04;
+        traveled += speed * 0.04;
+        orb.setPosition(px, py);
+
+        let hit = null;
+        this.waveManager.enemies.getChildren().forEach((enemy) => {
+          if (hit || !enemy.active || enemy.isDying) return;
+          if (Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y) < (enemy.enemyData?.radius || 16) + 12) {
+            hit = enemy;
+          }
+        });
+
+        if (hit || traveled >= maxDist) {
+          finish(px, py, hit);
+        }
+      },
+    });
   }
 
   shadowStrike(x, y) {

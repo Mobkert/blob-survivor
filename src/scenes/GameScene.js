@@ -20,6 +20,7 @@ import { getLevel } from '../data/levels.js';
 import { addCoins, addDiamonds, markLevelComplete } from '../data/meta.js';
 import { getPowerup } from '../data/powerups.js';
 import { getWeapon, getTundraUnlockOptions } from '../data/weapons.js';
+import { getSwampUnlockOptions } from '../data/shop.js';
 import { clearActiveNetplay } from '../systems/NetplayManager.js';
 import {
   initMultiplayerFlags,
@@ -528,6 +529,19 @@ export class GameScene extends Phaser.Scene {
           offer,
           options.length === 1 ? 'Unlock Your Final Weapon!' : 'Unlock a Tundra Weapon',
         );
+        this.isPausedForCard = false;
+        this.gameState = 'clear_linger';
+        this.physics.resume();
+      }
+    }
+
+    // Swamp unlock — Bogged card (if not already owned).
+    if (this.levelId === 'swamp' && !this.isMultiplayer) {
+      const options = getSwampUnlockOptions();
+      if (options.length > 0) {
+        this.gameState = 'weapon_pick';
+        this.isPausedForCard = true;
+        await this.cardManager.showUnlockPick(options, "You've Earned a Card!");
         this.isPausedForCard = false;
         this.gameState = 'clear_linger';
         this.physics.resume();

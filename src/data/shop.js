@@ -1,4 +1,4 @@
-import { loadMeta, saveMeta, SHOP_ROTATION_MS } from './meta.js';
+import { loadMeta, saveMeta, SHOP_ROTATION_MS, isUnlocked } from './meta.js';
 
 /** Shop-only unlockable powerups. Once bought, they can appear in level-up cards. */
 export const ShopItems = {
@@ -1287,6 +1287,25 @@ export const ShopItems = {
     },
   },
 
+  // --- swamp clear unlock (never sold in shop) ---
+  bogged: {
+    id: 'bogged',
+    name: 'Bogged',
+    category: 'attack',
+    color: 0x88cc33,
+    price: 0,
+    swampUnlock: true,
+    description:
+      'Q: Fire a heavy acid bolt. On hit or expire it leaves an acid puddle and splits into 3 bolts that also puddle. Works with any weapon. Mid-high damage & CD. Mid CD tax.',
+    attackType: 'bogged',
+    cooldownMs: 8500,
+    eligible: () => true,
+    apply: (state) => {
+      state.attackPowerup = 'bogged';
+      addCooldownTax(state, 1500, 80);
+    },
+  },
+
   // --- boss drop (never sold in shop) ---
   tank: {
     id: 'tank',
@@ -1387,6 +1406,17 @@ export function isBossDropCard(item) {
   return item != null && item.bossDrop === true;
 }
 
+export function isSwampUnlockCard(item) {
+  return item != null && item.swampUnlock === true;
+}
+
+/** Murk Swamp clear reward — Bogged, if not already unlocked. */
+export function getSwampUnlockOptions() {
+  if (isUnlocked('bogged')) return [];
+  const card = getShopItem('bogged');
+  return card ? [card] : [];
+}
+
 export function getDiamondShopCards() {
   return ShopItemList.filter((item) => isDiamondShopCard(item));
 }
@@ -1410,7 +1440,10 @@ export function getShopOffers() {
   const now = Date.now();
   const available = ShopItemList.filter(
     (item) =>
-      !meta.unlocked.includes(item.id) && !isDiamondShopCard(item) && !isBossDropCard(item),
+      !meta.unlocked.includes(item.id) &&
+      !isDiamondShopCard(item) &&
+      !isBossDropCard(item) &&
+      !isSwampUnlockCard(item),
   );
 
   if (available.length === 0) {
