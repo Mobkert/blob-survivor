@@ -69,7 +69,7 @@ async function decryptSlot(payload, password) {
   const iv = b64ToBytes(payload.iv);
   const ct = b64ToBytes(payload.ct);
   const key = await deriveKey(password, salt);
-  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, plain);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
   return JSON.parse(new TextDecoder().decode(plain));
 }
 
