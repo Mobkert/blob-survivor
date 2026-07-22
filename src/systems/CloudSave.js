@@ -1,10 +1,12 @@
 /**
  * Password cloud saves via encrypted JSONBlob storage.
  * Password → PBKDF2 key → AES-GCM encrypt slot → store under SHA-256(password) in a shared index blob.
+ *
+ * Uses the IIIF arthistoricum JSONBlob mirror (CORS-friendly, no 24h expiry like jsonblob.com).
  */
 
-const INDEX_BLOB_ID = '019f7ad4-e7eb-783d-8b5b-b4ede0f95bb5';
-const INDEX_URL = `https://jsonblob.com/api/jsonBlob/${INDEX_BLOB_ID}`;
+const INDEX_BLOB_ID = 'abe06f51-85c5-11f1-bdf1-bdec50505d9e';
+const INDEX_URL = `https://jsonblob.iiif.arthistoricum.net/api/jsonBlob/${INDEX_BLOB_ID}`;
 const PEPPER = 'blob-survivor-cloud-v1';
 
 function bytesToB64(bytes) {
@@ -67,15 +69,22 @@ async function decryptSlot(payload, password) {
   const iv = b64ToBytes(payload.iv);
   const ct = b64ToBytes(payload.ct);
   const key = await deriveKey(password, salt);
-  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, plain);
   return JSON.parse(new TextDecoder().decode(plain));
 }
 
 async function fetchIndex() {
-  const res = await fetch(INDEX_URL, {
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error('Could not reach cloud saves');
+  let res;
+  try {
+    res = await fetch(INDEX_URL, {
+      headers: { Accept: 'application/json' },
+    });
+  } catch {
+    throw new Error('Could not reach cloud saves (network error)');
+  }
+  if (!res.ok) {
+    throw new Error(`Could not reach cloud saves (${res.status})`);
+  }
   const data = await res.json();
   if (!data || typeof data !== 'object') return { v: 1, game: 'blob-survivor', map: {} };
   if (!data.map || typeof data.map !== 'object') data.map = {};
@@ -83,15 +92,20 @@ async function fetchIndex() {
 }
 
 async function putIndex(index) {
-  const res = await fetch(INDEX_URL, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(index),
-  });
-  if (!res.ok) throw new Error('Could not write cloud save');
+  let res;
+  try {
+    res = await fetch(INDEX_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(index),
+    });
+  } catch {
+    throw new Error('Could not write cloud save (network error)');
+  }
+  if (!res.ok) throw new Error(`Could not write cloud save (${res.status})`);
 }
 
 export function normalizePassword(raw) {
