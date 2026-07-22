@@ -414,9 +414,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   applyContinueLoadout(carry) {
-    // Keep Plains XP level; keep half of the previous run's damage, then apply the 4 cards.
-    this.playerState.level = Math.max(1, Number(carry.level) || 1);
-    this.playerState.xp = Math.max(0, Number(carry.xp) || 0);
+    // Fresh level/XP on continue; keep half of the previous run's damage, then apply the 4 cards.
+    this.playerState.level = 1;
+    this.playerState.xp = 0;
 
     const prevMult = Math.max(1, Number(carry.damageMultiplier) || 1);
     this.playerState.damageMultiplier = 1 + (prevMult - 1) * 0.5;
@@ -601,6 +601,29 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /** Heal after clearing a wave: +25 HP, or full heal every 5th wave. */
+  applyWaveClearHeal(wave) {
+    if (!this.player?.active) return;
+    if (wave > 0 && wave % 5 === 0) {
+      if (this.isMultiplayer && typeof this.sharedHp === 'number') {
+        this.sharedHp = this.sharedMaxHp || this.player.maxHp;
+        this.syncSharedHpToPlayers?.();
+      } else {
+        this.player.hp = this.player.maxHp;
+        this.player.syncStats?.();
+      }
+      this.events.emit('boss-message', 'Wave clear! Full heal!');
+      return;
+    }
+    if (this.isMultiplayer && typeof this.sharedHp === 'number') {
+      this.sharedHp = Math.min(this.sharedMaxHp || this.player.maxHp, this.sharedHp + 25);
+      this.syncSharedHpToPlayers?.();
+    } else {
+      this.player.heal(25);
+    }
+    this.events.emit('boss-message', 'Wave clear! +25 HP');
+  }
+
   async handleWaveCleared(wave) {
     if (this.waveTransitionLock) return;
     this.waveTransitionLock = true;
@@ -610,6 +633,8 @@ export class GameScene extends Phaser.Scene {
         this.playerState.enchantAscendantStacks =
           (this.playerState.enchantAscendantStacks || 0) + 1;
       }
+
+      this.applyWaveClearHeal(wave);
 
       this.gameState = 'wave_pause';
       this.events.emit('hud-update');

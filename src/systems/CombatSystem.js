@@ -1247,19 +1247,21 @@ export class CombatSystem {
 
   spawnSingularity(x, y, damage, radius, options = {}) {
     const fx = this.scene.fx;
-    const pullR = Math.max(140, radius * 1.6);
-    const core = fx?.hold(x, y, 12, 0x220033, 0.9, 10);
-    const ring = fx?.hold(x, y, 22, 0x6611aa, 0.28, 9);
+    const stacks = Math.max(1, Math.min(5, this.playerState.singularityStacks || 1));
+    const scale = stacks;
+    const pullR = Math.max(140, radius * 1.6) * scale;
+    const core = fx?.hold(x, y, 12 * Math.sqrt(scale), 0x220033, 0.9, 10);
+    const ring = fx?.hold(x, y, 22 * Math.sqrt(scale), 0x6611aa, 0.28, 9);
     if (core) core.setStrokeStyle(3, 0xbb44ff, 0.95);
     const vfxId = registerCoopVfx(this.scene, { kind: 'singularity', x, y, r: pullR });
 
-    let life = 1200;
+    let life = 1200 + (stacks - 1) * 150;
     const tick = this.scene.time.addEvent({
       delay: 80,
       loop: true,
       callback: () => {
         life -= 80;
-        if (ring?.active) ring.setRadius(20 + Math.sin(this.scene.time.now / 80) * 8);
+        if (ring?.active) ring.setRadius(20 * Math.sqrt(scale) + Math.sin(this.scene.time.now / 80) * 8);
         if (fx && life % 160 < 80) {
           fx.burst(x, y, { count: 3, color: 0xcc66ff, speed: 65, life: 240, size: 2.5 });
         }
@@ -1269,7 +1271,7 @@ export class CombatSystem {
           const dist = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
           if (dist > pullR) return;
           const ang = Phaser.Math.Angle.Between(enemy.x, enemy.y, x, y);
-          const force = Phaser.Math.Clamp((pullR - dist) / pullR, 0.15, 1) * 18;
+          const force = Phaser.Math.Clamp((pullR - dist) / pullR, 0.15, 1) * (18 + stacks * 2);
           enemy.x += Math.cos(ang) * force;
           enemy.y += Math.sin(ang) * force;
         });
@@ -1280,7 +1282,7 @@ export class CombatSystem {
           fx?.release(ring);
           unregisterCoopVfx(this.scene, vfxId);
           fx?.flash(x, y, 16, 0xaa44ff, 280, pullR * 0.7);
-          this.createExplosion(x, y, damage * 1.35, 0, pullR * 0.85, {
+          this.createExplosion(x, y, damage * (1.35 + stacks * 0.08), 0, pullR * 0.85, {
             skipAirstrike: true,
             color: 0xbb44ff,
             fromBig: !!options.fromBig,
@@ -1292,7 +1294,7 @@ export class CombatSystem {
 
   collectXp(orb) {
     if (this.playerState.scavenger) {
-      this.player.heal(2);
+      this.player.heal(this.playerState.scavengerHeal || 2);
     }
     if (this.playerState.xpSpark) {
       this.zapNearestFromXp(orb.x, orb.y);
@@ -1595,13 +1597,17 @@ export class CombatSystem {
       this.spawnRangedProjectile(shotAngle, weapon, damage);
     }
 
-    if (this.playerState.doubleTap) {
-      this.scene.time.delayedCall(120, () => {
-        const aimSrc = this._lastAimPointer || this.scene.input.activePointer;
-        const aim = this.player.getAimPoint(aimSrc);
-        const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, aim.x, aim.y);
-        this.spawnRangedProjectile(a, weapon, damage);
-      });
+    if (this.playerState.doubleTap || (this.playerState.doubleTapStacks || 0) > 0) {
+      const taps = Math.max(1, this.playerState.doubleTapStacks || 1);
+      for (let i = 0; i < taps; i++) {
+        this.scene.time.delayedCall(120 * (i + 1), () => {
+          if (!this.player?.active) return;
+          const aimSrc = this._lastAimPointer || this.scene.input.activePointer;
+          const aim = this.player.getAimPoint(aimSrc);
+          const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, aim.x, aim.y);
+          this.spawnRangedProjectile(a, weapon, damage);
+        });
+      }
     }
 
     if ((this.playerState.phantomEcho || 0) > 0) {
@@ -1740,7 +1746,7 @@ export class CombatSystem {
 
       this.showMeleeCircle(range);
       if (this.playerState.bloodMoonArc) {
-        this.spawnBloodMoonArc(damage * 0.55);
+        this.spawnBloodMoonArcs(damage * 0.55);
       }
       return;
     }
@@ -1778,7 +1784,7 @@ export class CombatSystem {
     this.showMeleeArc(angle, { ...weapon, arcDegrees: arc, range });
 
     if (this.playerState.bloodMoonArc) {
-      this.spawnBloodMoonArc(damage * 0.55);
+      this.spawnBloodMoonArcs(damage * 0.55);
     }
   }
 
@@ -1831,10 +1837,18 @@ export class CombatSystem {
     });
   }
 
-  spawnBloodMoonArc(tickDamage) {
+  spawnBloodMoonArcs(tickDamage) {
+    const count = Math.max(1, Math.min(10, this.playerState.bloodMoonStacks || 1));
+    for (let i = 0; i < count; i++) {
+      const startAngle = (Math.PI * 2 * i) / count;
+      this.spawnBloodMoonArc(tickDamage, startAngle);
+    }
+  }
+
+  spawnBloodMoonArc(tickDamage, startAngle = null) {
     const fx = this.scene.fx;
     const moon = this.scene.add.graphics().setDepth(10);
-    let angle = Math.random() * Math.PI * 2;
+    let angle = startAngle != null ? startAngle : Math.random() * Math.PI * 2;
     const orbit = 70;
     let life = 2800;
     const hitCooldown = new Map();

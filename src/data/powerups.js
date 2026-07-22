@@ -8,10 +8,11 @@ export const Powerups = {
     name: 'Multishot',
     category: 'projectile',
     color: 0x44aaff,
-    description: '+2 extra projectiles per shot.',
+    description: '+2 extra projectiles per shot. −20% ranged damage.',
     eligible: (state) => state.weapon?.type === 'ranged',
     apply: (state) => {
       state.bonusProjectiles += 2;
+      state.rangedDamageBonus = (state.rangedDamageBonus || 0) - 0.2;
     },
   },
   piercing: {
@@ -203,8 +204,8 @@ export function getAvailablePowerups() {
 function weightedPick(items, count, levelId = 'plains') {
   const pool = items.map((item) => ({
     item,
-    // Bought shop cards are much more common so they show up soon after unlock.
-    weight: item.price != null ? 4 : item.id === 'healOnKill' && levelId === 'swamp' ? 7 : 1,
+    // Equal odds for starter and shop cards; swamp still favors Heal on Kill a bit.
+    weight: item.id === 'healOnKill' && levelId === 'swamp' ? 7 : 1,
   }));
   const picked = [];
 
@@ -228,8 +229,6 @@ export function pickPowerupCards(state, count = 3, levelId = 'plains') {
   const available = getAvailablePowerups().filter((p) => p.eligible(state));
   if (available.length === 0) return [];
 
-  // Prefer showing at least one unlocked shop card when one is eligible.
-  const shopEligible = available.filter((p) => p.price != null);
   const result = [];
 
   // In Murk Swamp, often guarantee Heal on Kill in the offer.
@@ -237,14 +236,6 @@ export function pickPowerupCards(state, count = 3, levelId = 'plains') {
     const heal = available.find((p) => p.id === 'healOnKill');
     if (heal && Math.random() < 0.55) {
       result.push(heal);
-    }
-  }
-
-  if (shopEligible.length > 0 && result.length < count) {
-    const shopPool = shopEligible.filter((p) => !result.some((r) => r.id === p.id));
-    if (shopPool.length > 0) {
-      const guaranteed = shopPool[Math.floor(Math.random() * shopPool.length)];
-      result.push(guaranteed);
     }
   }
 

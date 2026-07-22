@@ -25,6 +25,7 @@ export class UIScene extends Phaser.Scene {
     this.cardPickGroup = this.add.container(0, 0).setScrollFactor(0).setDepth(500).setVisible(false);
     this.cardPickPanels = [];
     this.cardPickCallback = null;
+    this.cardPickReady = false;
 
     this.hpBarBg = this.add.rectangle(20, 20, 204, 18, 0x222222).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
     this.hpBar = this.add.rectangle(22, 22, 200, 14, 0x44cc66).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
@@ -392,6 +393,7 @@ export class UIScene extends Phaser.Scene {
   showCardPick(cards, title, onSelect) {
     this.hideCardPick();
     this.cardPickCallback = onSelect;
+    this.cardPickReady = false;
     this.cardPickGroup.setVisible(true);
 
     const width = 1280;
@@ -417,73 +419,117 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.cardPickGroup.add(titleText);
 
+    const dropFrom = -420;
+    const panels = [];
     cards.forEach((card, index) => {
       const x = startX + index * (cardWidth + gap);
-      this.createCardPanel(x, cardY, cardWidth, cardHeight, card);
+      const panel = this.createCardPanel(x, cardY, cardWidth, cardHeight, card, {
+        interactive: false,
+      });
+      panel.container.y = dropFrom;
+      panel.container.setAlpha(0.35);
+      panels.push(panel);
+    });
+
+    panels.forEach((panel, index) => {
+      this.tweens.add({
+        targets: panel.container,
+        y: cardY,
+        alpha: 1,
+        duration: 420,
+        delay: 180 + index * 220,
+        ease: 'Bounce.easeOut',
+        onComplete: () => {
+          if (index === panels.length - 1) {
+            this.enableCardPickPanels(panels);
+          }
+        },
+      });
     });
   }
 
-  createCardPanel(x, y, w, h, card) {
+  enableCardPickPanels(panels) {
+    this.cardPickReady = true;
+    panels.forEach((panel) => {
+      if (!panel?.bg) return;
+      panel.bg.setInteractive({ useHandCursor: true });
+    });
+  }
+
+  createCardPanel(x, y, w, h, card, options = {}) {
     const premium = isPremiumShopCard(card);
     const fill = premium ? 0x14081f : 0x1a2a18;
     const hover = premium ? 0x221433 : 0x243824;
     const stroke = premium ? 0xffd24a : card.color || 0x88aa88;
+    const allowClick = options.interactive !== false;
+
+    const container = this.add.container(x, y);
+    const kids = [];
 
     if (premium) {
-      const glow = this.add.ellipse(x, y, w + 24, h + 24, 0xffaa33, 0.12);
-      this.cardPickGroup.add(glow);
+      kids.push(this.add.ellipse(0, 0, w + 24, h + 24, 0xffaa33, 0.12));
     }
 
     const bg = this.add
-      .rectangle(x, y, w, h, fill, 0.98)
-      .setStrokeStyle(premium ? 4 : 3, stroke)
-      .setInteractive({ useHandCursor: true });
+      .rectangle(0, 0, w, h, fill, 0.98)
+      .setStrokeStyle(premium ? 4 : 3, stroke);
 
-    if (premium) {
-      const sheen = this.add.rectangle(x, y - h * 0.32, w - 12, h * 0.28, 0xffcc66, 0.1);
-      const tag = this.add
-        .text(x, y - h / 2 + 18, '✦ PREMIUM', {
-          fontFamily: 'Arial',
-          fontSize: '12px',
-          color: '#ffd76a',
-          fontStyle: 'bold',
-        })
-        .setOrigin(0.5);
-      this.cardPickGroup.add([sheen, tag]);
+    if (allowClick) {
+      bg.setInteractive({ useHandCursor: true });
     }
 
-    const icon = this.add.circle(x, y - 80, 36, card.color || 0xffffff, 1);
-    const name = this.add
-      .text(x, y - 10, card.name, {
-        fontFamily: 'Arial',
-        fontSize: '22px',
-        color: premium ? '#ffe9b0' : '#ffffff',
-        fontStyle: 'bold',
-        align: 'center',
-        wordWrap: { width: w - 24 },
-      })
-      .setOrigin(0.5);
+    kids.push(bg);
+
+    if (premium) {
+      kids.push(this.add.rectangle(0, -h * 0.32, w - 12, h * 0.28, 0xffcc66, 0.1));
+      kids.push(
+        this.add
+          .text(0, -h / 2 + 18, '✦ PREMIUM', {
+            fontFamily: 'Arial',
+            fontSize: '12px',
+            color: '#ffd76a',
+            fontStyle: 'bold',
+          })
+          .setOrigin(0.5),
+      );
+    }
+
+    kids.push(this.add.circle(0, -80, 36, card.color || 0xffffff, 1));
+    kids.push(
+      this.add
+        .text(0, -10, card.name, {
+          fontFamily: 'Arial',
+          fontSize: '22px',
+          color: premium ? '#ffe9b0' : '#ffffff',
+          fontStyle: 'bold',
+          align: 'center',
+          wordWrap: { width: w - 24 },
+        })
+        .setOrigin(0.5),
+    );
 
     const categoryLabel = card.category ? card.category : card.type;
-    const category = this.add
-      .text(x, y + 20, `[${categoryLabel}]`, {
-        fontFamily: 'Arial',
-        fontSize: '14px',
-        color: premium ? '#e0c878' : '#aaccaa',
-      })
-      .setOrigin(0.5);
+    kids.push(
+      this.add
+        .text(0, 20, `[${categoryLabel}]`, {
+          fontFamily: 'Arial',
+          fontSize: '14px',
+          color: premium ? '#e0c878' : '#aaccaa',
+        })
+        .setOrigin(0.5),
+    );
 
-    const desc = this.add
-      .text(x, y + 70, card.description, {
-        fontFamily: 'Arial',
-        fontSize: '15px',
-        color: premium ? '#f0e0b8' : '#ddeedd',
-        align: 'center',
-        wordWrap: { width: w - 30 },
-      })
-      .setOrigin(0.5);
-
-    const kids = [bg, icon, name, category, desc];
+    kids.push(
+      this.add
+        .text(0, 70, card.description, {
+          fontFamily: 'Arial',
+          fontSize: '15px',
+          color: premium ? '#f0e0b8' : '#ddeedd',
+          align: 'center',
+          wordWrap: { width: w - 30 },
+        })
+        .setOrigin(0.5),
+    );
 
     // Weapon forge enchant badge
     if (card.type === 'ranged' || card.type === 'melee' || card.type === 'big') {
@@ -491,30 +537,38 @@ export class UIScene extends Phaser.Scene {
       if (saved) {
         const ench = getEnchant(saved.enchantId);
         const rar = getRarity(saved.rarityId);
-        const badge = this.add
-          .text(x, y + h / 2 - 22, ench?.name || 'Enchanted', {
-            fontFamily: 'Arial',
-            fontSize: '13px',
-            color: rar?.color || '#ffd090',
-            fontStyle: 'bold',
-          })
-          .setOrigin(0.5);
-        kids.push(badge);
+        kids.push(
+          this.add
+            .text(0, h / 2 - 22, ench?.name || 'Enchanted', {
+              fontFamily: 'Arial',
+              fontSize: '13px',
+              color: rar?.color || '#ffd090',
+              fontStyle: 'bold',
+            })
+            .setOrigin(0.5),
+        );
       }
     }
 
-    bg.on('pointerover', () => bg.setFillStyle(hover, 0.98));
+    bg.on('pointerover', () => {
+      if (!this.cardPickReady && options.interactive === false) return;
+      bg.setFillStyle(hover, 0.98);
+    });
     bg.on('pointerout', () => bg.setFillStyle(fill, 0.98));
     bg.on('pointerdown', () => {
+      if (!this.cardPickReady && options.interactive === false) return;
       if (this.cardPickCallback) this.cardPickCallback(card);
     });
 
-    this.cardPickGroup.add(kids);
+    container.add(kids);
+    this.cardPickGroup.add(container);
     this.cardPickPanels.push(bg);
+    return { container, bg };
   }
 
   hideCardPick() {
     this.cardPickCallback = null;
+    this.cardPickReady = false;
     this.continuePickMode = false;
     this.continueSelected = new Set();
     this.continuePickCards = null;
@@ -740,7 +794,7 @@ export class UIScene extends Phaser.Scene {
       .text(
         width / 2,
         92,
-        `Keep level ${this.continuePickLevel}. You keep half your Plains damage, then your 4 cards apply.\nYou keep ${weaponName} until wave 5, then you can change.`,
+        `Level resets to 1. You keep half your Plains damage, then your 4 cards apply.\nYou keep ${weaponName} until wave 5, then you can change.`,
         {
           fontFamily: 'Arial',
           fontSize: '16px',

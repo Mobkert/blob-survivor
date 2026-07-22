@@ -203,9 +203,12 @@ export const ShopItems = {
     category: 'projectile',
     color: 0xffcc88,
     price: 480,
-    description: 'Ranged: extra delayed shot. +110ms attack CD.',
-    eligible: (state) => state.weapon?.type === 'ranged',
+    description:
+      'Ranged: extra delayed shots in a line. Stackable up to 5. +110ms attack CD.',
+    eligible: (state) =>
+      state.weapon?.type === 'ranged' && (state.doubleTapStacks || 0) < 5,
     apply: (state) => {
+      state.doubleTapStacks = (state.doubleTapStacks || 0) + 1;
       state.doubleTap = true;
       addCooldownTax(state, 0, 110);
     },
@@ -296,9 +299,10 @@ export const ShopItems = {
     category: 'passive',
     color: 0xffcc33,
     price: 400,
-    description: 'Enemies drop 50% more coins. +40ms attack CD.',
-    eligible: () => true,
+    description: 'Enemies drop 50% more coins. +40ms attack CD. (Not stackable)',
+    eligible: (state) => !state.goldFever,
     apply: (state) => {
+      state.goldFever = true;
       state.coinMultiplier = (state.coinMultiplier || 1) * 1.5;
       addCooldownTax(state, 0, 40);
     },
@@ -309,9 +313,10 @@ export const ShopItems = {
     category: 'passive',
     color: 0x44ffaa,
     price: 430,
-    description: 'Gain +1 bonus XP from every kill.',
-    eligible: () => true,
+    description: 'Gain +1 bonus XP from every kill. (Not stackable)',
+    eligible: (state) => !state.xpSurge,
     apply: (state) => {
+      state.xpSurge = true;
       state.bonusXp = (state.bonusXp || 0) + 1;
     },
   },
@@ -381,9 +386,9 @@ export const ShopItems = {
       addCooldownTax(state, 0, 70);
     },
   },
-  scavenger: {
-    id: 'scavenger',
-    name: 'Scavenger',
+  coinMender: {
+    id: 'coinMender',
+    name: 'Coin Mender',
     category: 'passive',
     color: 0xbb9966,
     price: 370,
@@ -638,6 +643,8 @@ export const ShopItems = {
     category: 'explosive',
     color: 0xff5522,
     price: 4500,
+    description:
+      'Big: after each blast, 4 waves of 2–5 follow-up airstrike explosions land nearby. +25% big dmg. +120ms attack CD.',
     eligible: (state) => state.weapon?.type === 'big',
     apply: (state) => {
       state.airstrike = true;
@@ -721,6 +728,38 @@ export const ShopItems = {
       state.attackSpeedBonus = (state.attackSpeedBonus || 0) + 0.3;
       state.healOnKill = Math.min(15, (state.healOnKill || 0) + 6);
       state.damageTakenMultiplier *= 1.12;
+    },
+  },
+  bloodQuiver: {
+    id: 'bloodQuiver',
+    name: 'Blood Quiver',
+    category: 'projectile',
+    color: 0xcc2266,
+    price: 1300,
+    description: 'Ranged: +55% dmg, 12% lifesteal, +1 pierce. Take +12% damage.',
+    eligible: (state) => state.weapon?.type === 'ranged',
+    apply: (state) => {
+      state.rangedDamageBonus = (state.rangedDamageBonus || 0) + 0.55;
+      state.lifesteal = (state.lifesteal || 0) + 0.12;
+      state.piercing = (state.piercing || 0) + 1;
+      state.damageTakenMultiplier *= 1.12;
+      addCooldownTax(state, 0, 40);
+    },
+  },
+  graveBomb: {
+    id: 'graveBomb',
+    name: 'Grave Bomb',
+    category: 'explosive',
+    color: 0x662288,
+    price: 1300,
+    description: 'Big: +60% dmg, larger blasts, +6 heal/kill. Take +12% damage.',
+    eligible: (state) => state.weapon?.type === 'big',
+    apply: (state) => {
+      state.bigDamageBonus = (state.bigDamageBonus || 0) + 0.6;
+      state.blastRadiusBonus = (state.blastRadiusBonus || 0) + 0.2;
+      state.healOnKill = Math.min(15, (state.healOnKill || 0) + 6);
+      state.damageTakenMultiplier *= 1.12;
+      addCooldownTax(state, 0, 50);
     },
   },
 
@@ -949,10 +988,12 @@ export const ShopItems = {
     category: 'passive',
     color: 0x88cc66,
     price: 430,
-    description: '+1 XP per orb. Picking up XP heals 2 HP.',
-    eligible: () => true,
+    description: '+1 XP per orb. XP pickups heal 2 HP (stacks up to 3, max 6 heal).',
+    eligible: (state) => (state.scavengerStacks || 0) < 3,
     apply: (state) => {
+      state.scavengerStacks = (state.scavengerStacks || 0) + 1;
       state.scavenger = true;
+      state.scavengerHeal = Math.min(6, (state.scavengerHeal || 0) + 2);
       state.bonusXp = (state.bonusXp || 0) + 1;
     },
   },
@@ -1352,11 +1393,14 @@ export const ShopItems = {
     diamondPrice: 130,
     currency: 'diamonds',
     description:
-      'Melee: each slash leaves a spinning crimson moon that shreds nearby enemies. Take +8% damage.',
-    eligible: (state) => state.weapon?.type === 'melee',
+      'Melee: spinning crimson moons orbit you. Stackable up to 10 moons. Take +8% damage (once).',
+    eligible: (state) =>
+      state.weapon?.type === 'melee' && (state.bloodMoonStacks || 0) < 10,
     apply: (state) => {
+      const first = !(state.bloodMoonStacks > 0);
+      state.bloodMoonStacks = (state.bloodMoonStacks || 0) + 1;
       state.bloodMoonArc = true;
-      state.damageTakenMultiplier *= 1.08;
+      if (first) state.damageTakenMultiplier *= 1.08;
     },
   },
   singularity: {
@@ -1368,9 +1412,11 @@ export const ShopItems = {
     diamondPrice: 140,
     currency: 'diamonds',
     description:
-      'Big: blasts open a void that pulls enemies in, then detonates. +100ms attack CD.',
-    eligible: (state) => state.weapon?.type === 'big',
+      'Big: blasts open a void that pulls enemies in, then detonates. Stackable up to 5× larger. +100ms attack CD.',
+    eligible: (state) =>
+      state.weapon?.type === 'big' && (state.singularityStacks || 0) < 5,
     apply: (state) => {
+      state.singularityStacks = (state.singularityStacks || 0) + 1;
       state.singularity = true;
       addCooldownTax(state, 0, 100);
     },
