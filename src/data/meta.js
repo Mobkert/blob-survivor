@@ -1,3 +1,12 @@
+import {
+  createQuest,
+  createEmptyQuestSlot,
+  generateQuestBoard,
+  normalizeQuestBoard,
+  QUEST_REPLACEMENTS_MAX,
+  QUEST_RESTOCK_MS,
+} from './quests.js';
+
 const LEGACY_STORAGE_KEY = 'blob_survivor_meta_v1';
 const SAVES_STORAGE_KEY = 'blob_survivor_saves_v1';
 const SHOP_ROTATION_MS = 5 * 60 * 1000;
@@ -17,6 +26,12 @@ export function defaultMeta() {
     completedLevels: [],
     shopOfferIds: [],
     shopOfferUntil: 0,
+    freeForgeRolls: 0,
+    freeLuckyForgeRolls: 0,
+    questBoard: generateQuestBoard(),
+    questReplacementsLeft: QUEST_REPLACEMENTS_MAX,
+    // 0 = start the 20-minute clock on first ensureQuestRestock()
+    questRestockAt: 0,
   };
 }
 
@@ -43,6 +58,14 @@ function cloneMeta(meta) {
     completedLevels: Array.isArray(meta?.completedLevels) ? [...meta.completedLevels] : [],
     shopOfferIds: Array.isArray(meta?.shopOfferIds) ? [...meta.shopOfferIds] : [],
     shopOfferUntil: Number(meta?.shopOfferUntil) || 0,
+    freeForgeRolls: Math.max(0, Number(meta?.freeForgeRolls) || 0),
+    freeLuckyForgeRolls: Math.max(0, Number(meta?.freeLuckyForgeRolls) || 0),
+    questBoard: normalizeQuestBoard(meta?.questBoard),
+    questReplacementsLeft:
+      meta?.questReplacementsLeft === undefined || meta?.questReplacementsLeft === null
+        ? QUEST_REPLACEMENTS_MAX
+        : Math.max(0, Math.min(QUEST_REPLACEMENTS_MAX, Number(meta.questReplacementsLeft) || 0)),
+    questRestockAt: Math.max(0, Number(meta?.questRestockAt) || 0),
   };
 }
 
@@ -360,6 +383,162 @@ export function setWeaponEnchant(weaponId, enchantId, rarityId) {
   };
   saveMeta(meta);
   return meta;
+}
+
+export function getQuestBoard() {
+  ensureQuestRestock();
+  return normalizeQuestBoard(loadMeta().questBoard);
+}
+
+export function getQuestStockInfo() {
+  const meta = ensureQuestRestock();
+  return {
+    replacementsLeft: meta.questReplacementsLeft ?? QUEST_REPLACEMENTS_MAX,
+    restockAt: meta.questRestockAt || 0,
+    maxReplacements: QUEST_REPLACEMENTS_MAX,
+  };
+}
+
+/** Always keep a 20-minute restock timer. When it elapses, refresh the board
+ *  even if no quests were claimed. */
+export function ensureQuestRestock() {
+  const meta = loadMeta();
+  const now = Date.now();
+  let changed = false;
+
+  if (meta.questReplacementsLeft === undefined || meta.questReplacementsLeft === null) {
+    meta.questReplacementsLeft = QUEST_REPLACEMENTS_MAX;
+    changed = true;
+  }
+
+  let restockAt = meta.questRestockAt || 0;
+
+  // Start the clock on first visit / after migration.
+  if (restockAt <= 0) {
+    meta.questRestockAt = now + QUEST_RESTOCK_MS;
+    changed = true;
+    if (changed) saveMeta(meta);
+    return meta;
+  }
+
+  // Timer elapsed → full restock and schedule the next cycle.
+  if (now >= restockAt) {
+    meta.questBoard = generateQuestBoard();
+    meta.questReplacementsLeft = QUEST_REPLACEMENTS_MAX;
+    meta.questRestockAt = now + QUEST_RESTOCK_MS;
+    saveMeta(meta);
+    return meta;
+  }
+
+  if (changed) saveMeta(meta);
+  return meta;
+}
+
+/** Advance matching unclaimed quests by `amount`. */
+export function progressQuests(type, amount = 1) {
+  const add = Math.max(0, Math.floor(amount));
+  if (!type || add <= 0) return loadMeta();
+  ensureQuestRestock();
+  const meta = loadMeta();
+  let changed = false;
+  meta.questBoard = normalizeQuestBoard(meta.questBoard).map((q) => {
+    if (q.claimed || q.empty || q.type !== type) return q;
+    const next = Math.min(q.target, q.progress + add);
+    if (next !== q.progress) changed = true;
+    return { ...q, progress: next };
+  });
+  if (changed) saveMeta(meta);
+  return meta;
+}
+
+/** Set progress to at least `value` for matching quests (e.g. reach wave). */
+export function progressQuestsAtLeast(type, value) {
+  const v = Math.max(0, Math.floor(value));
+  if (!type || v <= 0) return loadMeta();
+  ensureQuestRestock();
+  const meta = loadMeta();
+  let changed = false;
+  meta.questBoard = normalizeQuestBoard(meta.questBoard).map((q) => {
+    if (q.claimed || q.empty || q.type !== type) return q;
+    const next = Math.min(q.target, Math.max(q.progress, v));
+    if (next !== q.progress) changed = true;
+    return { ...q, progress: next };
+  });
+  if (changed) saveMeta(meta);
+  return meta;
+}
+
+/** Claim a completed quest reward. Returns reward info or null. */
+export function claimQuest(questId) {
+  ensureQuestRestock();
+  const meta = loadMeta();
+  const board = normalizeQuestBoard(meta.questBoard);
+  const idx = board.findIndex((q) => q.id === questId);
+  if (idx < 0) return null;
+  const quest = board[idx];
+  if (quest.claimed || quest.empty || quest.progress < quest.target) return null;
+
+  if (quest.rewardType === 'gold' || quest.rewardType === 'coins') {
+    meta.coins += quest.rewardAmount;
+  } else if (quest.rewardType === 'diamonds') {
+    meta.diamonds += quest.rewardAmount;
+  } else if (quest.rewardType === 'forge_roll') {
+    meta.freeForgeRolls = (meta.freeForgeRolls || 0) + quest.rewardAmount;
+  } else if (quest.rewardType === 'lucky_forge_roll') {
+    meta.freeLuckyForgeRolls = (meta.freeLuckyForgeRolls || 0) + quest.rewardAmount;
+  }
+
+  let replacementsLeft = meta.questReplacementsLeft ?? QUEST_REPLACEMENTS_MAX;
+  if (replacementsLeft > 0) {
+    replacementsLeft -= 1;
+    meta.questReplacementsLeft = replacementsLeft;
+    const used = new Set(
+      board.filter((_, i) => i !== idx && !board[i].empty).map((q) => q.type),
+    );
+    // Always a different quest type than the one just claimed.
+    board[idx] = createQuest(quest.difficulty, used, quest.type);
+  } else {
+    board[idx] = createEmptyQuestSlot(quest.difficulty);
+  }
+
+  // Keep the existing 20-minute restock clock (auto-refreshes even with no claims).
+  if (!meta.questRestockAt) {
+    meta.questRestockAt = Date.now() + QUEST_RESTOCK_MS;
+  }
+
+  meta.questBoard = board;
+  saveMeta(meta);
+  return {
+    quest,
+    rewardType: quest.rewardType,
+    rewardAmount: quest.rewardAmount,
+    label: quest.label,
+    replacementsLeft: meta.questReplacementsLeft,
+    restockAt: meta.questRestockAt || 0,
+  };
+}
+
+export function addFreeForgeRolls(amount, lucky = false) {
+  const meta = loadMeta();
+  const n = Math.max(0, Math.floor(amount));
+  if (lucky) meta.freeLuckyForgeRolls = (meta.freeLuckyForgeRolls || 0) + n;
+  else meta.freeForgeRolls = (meta.freeForgeRolls || 0) + n;
+  saveMeta(meta);
+  return meta;
+}
+
+/** Spend one free forge roll. Returns false if none left. */
+export function spendFreeForgeRoll(lucky = false) {
+  const meta = loadMeta();
+  if (lucky) {
+    if ((meta.freeLuckyForgeRolls || 0) < 1) return false;
+    meta.freeLuckyForgeRolls -= 1;
+  } else {
+    if ((meta.freeForgeRolls || 0) < 1) return false;
+    meta.freeForgeRolls -= 1;
+  }
+  saveMeta(meta);
+  return true;
 }
 
 export { SHOP_ROTATION_MS };

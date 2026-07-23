@@ -17,6 +17,7 @@ import {
   spendDiamonds,
   getWeaponEnchant,
   setWeaponEnchant,
+  spendFreeForgeRoll,
 } from '../data/meta.js';
 import { Music } from '../systems/MusicManager.js';
 
@@ -73,7 +74,13 @@ export class ForgeScene extends Phaser.Scene {
 
   refreshBalance() {
     const meta = loadMeta();
-    this.balanceText?.setText(`Gold: ${meta.coins}  ·  Diamonds: ${meta.diamonds}`);
+    const freeN = meta.freeForgeRolls || 0;
+    const freeL = meta.freeLuckyForgeRolls || 0;
+    const freeBit =
+      freeN || freeL
+        ? `  ·  Free rolls: ${freeN}n / ${freeL}◆`
+        : '';
+    this.balanceText?.setText(`Gold: ${meta.coins}  ·  Diamonds: ${meta.diamonds}${freeBit}`);
   }
 
   createBackButton() {
@@ -524,16 +531,27 @@ export class ForgeScene extends Phaser.Scene {
   tryRoll(lucky) {
     if (!this.selectedWeapon || this.revealing) return;
 
-    const ok = lucky ? spendDiamonds(FORGE_DIAMOND_COST) : spendCoins(FORGE_GOLD_COST);
-    if (!ok) {
-      this.messageText?.setText(
-        lucky ? `Need ${FORGE_DIAMOND_COST} diamonds.` : `Need ${FORGE_GOLD_COST} gold.`,
-      );
-      this.messageText?.setColor('#ff8866');
-      return;
+    const meta = loadMeta();
+    const usedFree = lucky
+      ? (meta.freeLuckyForgeRolls || 0) > 0 && spendFreeForgeRoll(true)
+      : (meta.freeForgeRolls || 0) > 0 && spendFreeForgeRoll(false);
+
+    if (!usedFree) {
+      const ok = lucky ? spendDiamonds(FORGE_DIAMOND_COST) : spendCoins(FORGE_GOLD_COST);
+      if (!ok) {
+        this.messageText?.setText(
+          lucky ? `Need ${FORGE_DIAMOND_COST} diamonds.` : `Need ${FORGE_GOLD_COST} gold.`,
+        );
+        this.messageText?.setColor('#ff8866');
+        return;
+      }
     }
 
     this.refreshBalance();
+    if (usedFree) {
+      this.messageText?.setText(lucky ? 'Used a free lucky roll!' : 'Used a free enchant roll!');
+      this.messageText?.setColor('#88ffaa');
+    }
     const result = rollForgeEnchant(lucky);
     if (!result?.enchant) {
       this.messageText?.setText('Roll failed — try again.');

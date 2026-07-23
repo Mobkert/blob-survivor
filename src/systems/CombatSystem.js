@@ -5,7 +5,7 @@ import { XpOrb } from '../entities/XpOrb.js';
 import { CoinOrb } from '../entities/CoinOrb.js';
 import { Powerups, getPowerup } from '../data/powerups.js';
 import { rollEnemyCoinsForWave, getCoinReductionSteps } from '../data/enemies.js';
-import { addCoins, isUnlocked, unlockShopItem } from '../data/meta.js';
+import { addCoins, isUnlocked, unlockShopItem, progressQuests } from '../data/meta.js';
 import { ShopItems } from '../data/shop.js';
 import { CardPickup } from '../entities/CardPickup.js';
 import { broadcastMeleeArc, grantCoopCoins, registerCoopVfx, unregisterCoopVfx } from './CoopNet.js';
@@ -149,6 +149,14 @@ export class CombatSystem {
 
     if ((enemy.contactDamage || 0) > 0) {
       this.player.takeDamage(enemy.contactDamage, time);
+      // Frost cubes: bounce out after a hit so they can't sit inside the player.
+      if (
+        enemy.isIceCube &&
+        !enemy.isExplodeIce &&
+        typeof enemy.lungeAwayFrom === 'function'
+      ) {
+        enemy.lungeAwayFrom(this.player, time, enemy.isDashIce ? 130 : 170);
+      }
     }
 
     if (enemy.enemyData?.appliesBurn) {
@@ -535,6 +543,14 @@ export class CombatSystem {
 
     const killed = enemy.takeDamage(damage);
 
+    if (
+      damage > 0 &&
+      !options.fromCloud &&
+      !(this.scene.isMultiplayer && this.scene.mpRole === 'guest')
+    ) {
+      progressQuests('deal_damage', Math.floor(damage));
+    }
+
     if (this.playerState.hexMark && !killed) {
       enemy.hexMarked = true;
       enemy.setTint(0xff66aa);
@@ -553,6 +569,12 @@ export class CombatSystem {
     if (killed) {
       enemy.markDying();
       this.grantKillRewards(enemy, options);
+      if (!(this.scene.isMultiplayer && this.scene.mpRole === 'guest')) {
+        progressQuests('kill_enemies', 1);
+        if (enemy.isWizard || enemy.isIceWizard || enemy.enemyData?.isWizard) {
+          progressQuests('kill_wizards', 1);
+        }
+      }
     } else if (!options.fromCloud && !options.fromEnchant && weapon?.enchantDeathFuse) {
       this.scheduleDeathFuse(enemy, damage * 0.75);
     }
@@ -2218,6 +2240,10 @@ export class CombatSystem {
         radius: canSplit ? 78 : 55,
         tickDamage: canSplit ? 8 : 5,
         durationMs: 2600 + Math.random() * 1000,
+        hurtPlayer: false,
+        poisonEnemies: true,
+        poisonDamage: canSplit ? 5 : 3,
+        poisonMs: 2400,
       });
       fx?.burst(hx, hy, { count: canSplit ? 14 : 8, color: 0x88ee44, speed: 140, life: 300, size: 4 });
 

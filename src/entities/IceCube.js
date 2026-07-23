@@ -69,6 +69,11 @@ export class IceCube extends Enemy {
       return;
     }
 
+    if (this.phase === 'lunge') {
+      this.updateLunge(time);
+      return;
+    }
+
     if (time < (this.sandStunUntil || 0)) {
       this.setVelocity(0, 0);
       this.setTint(0xd4b483);
@@ -182,8 +187,48 @@ export class IceCube extends Enemy {
           life: 180,
           size: 3,
         });
+        // Mini / dash cubes bounce out of the player hitbox after connecting.
+        this.lungeAwayFrom(player, time, 140);
       }
     }
+  }
+
+  /** Knock this cube away from the player so it cannot sit inside the hitbox. */
+  lungeAwayFrom(player, time, distance = 160) {
+    if (!player?.active || this.isDying || !this.active) return;
+    if (time < (this._lungeUntil || 0)) return;
+    this._lungeUntil = time + 450;
+
+    const ang = Phaser.Math.Angle.Between(player.x, player.y, this.x, this.y);
+    // If overlapping center, pick away from player facing / random
+    const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+    const angle = dist < 4 ? ang + Math.PI : ang;
+    const distPush = distance;
+    this.phase = 'lunge';
+    this.phaseEnd = time + 220;
+    this.dashEndX = this.x + Math.cos(angle) * distPush;
+    this.dashEndY = this.y + Math.sin(angle) * distPush;
+    this.setVelocity(Math.cos(angle) * 520, Math.sin(angle) * 520);
+    this.scene.fx?.burst(this.x, this.y, {
+      count: 5,
+      color: 0xaaddff,
+      speed: 80,
+      life: 140,
+      size: 2,
+    });
+  }
+
+  updateLunge(time) {
+    const dist = Phaser.Math.Distance.Between(this.x, this.y, this.dashEndX, this.dashEndY);
+    if (dist < 18 || time >= this.phaseEnd) {
+      this.setVelocity(0, 0);
+      this.clearTint();
+      this.phase = 'chase';
+      this.nextDashTime = Math.max(this.nextDashTime || 0, time + 900);
+      return;
+    }
+    const angle = Phaser.Math.Angle.Between(this.x, this.y, this.dashEndX, this.dashEndY);
+    this.setVelocity(Math.cos(angle) * 480, Math.sin(angle) * 480);
   }
 
   markDying() {

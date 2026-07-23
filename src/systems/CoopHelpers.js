@@ -189,17 +189,36 @@ export function applyGuestInputOnHost(scene, input) {
 export function collectLocalInput(scene) {
   const p = scene.input.activePointer;
   const world = p.positionToCamera(scene.cameras.main);
+  const binds = scene.keybinds || {};
+  const attackMouse = !binds.attack || binds.attack === 'LMB' || binds.attack === 'RMB' || binds.attack === 'MMB';
+  const shieldMouse = !binds.shield || binds.shield === 'LMB' || binds.shield === 'RMB' || binds.shield === 'MMB';
+  let fire = false;
+  let shield = false;
+  if (attackMouse) {
+    if (binds.attack === 'RMB') fire = p.rightButtonDown();
+    else if (binds.attack === 'MMB') fire = p.middleButtonDown();
+    else fire = p.leftButtonDown();
+  } else {
+    fire = !!scene.cursors?.attack?.isDown;
+  }
+  if (shieldMouse) {
+    if (binds.shield === 'LMB') shield = p.leftButtonDown();
+    else if (binds.shield === 'MMB') shield = p.middleButtonDown();
+    else shield = p.rightButtonDown();
+  } else {
+    shield = !!scene.cursors?.shield?.isDown;
+  }
   return {
     type: 'input',
-    up: scene.cursors.W.isDown,
-    down: scene.cursors.S.isDown,
-    left: scene.cursors.A.isDown,
-    right: scene.cursors.D.isDown,
+    up: !!scene.cursors?.W?.isDown,
+    down: !!scene.cursors?.S?.isDown,
+    left: !!scene.cursors?.A?.isDown,
+    right: !!scene.cursors?.D?.isDown,
     aimX: world.x,
     aimY: world.y,
-    fire: p.leftButtonDown(),
-    shield: p.rightButtonDown(),
-    q: Phaser.Input.Keyboard.JustDown(scene.cursors.Q),
+    fire,
+    shield,
+    q: scene.cursors?.Q ? Phaser.Input.Keyboard.JustDown(scene.cursors.Q) : false,
   };
 }
 

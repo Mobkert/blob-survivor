@@ -12,9 +12,9 @@ export class IceWizard extends Enemy {
     super(scene, x, y, typeId || 'iceWizard', wave);
     this.isWizard = true;
     this.isIceWizard = true;
-    this.nextAttackTime = scene.time.now + 1400 + Math.random() * 1200;
+    this.nextAttackTime = scene.time.now + 2800 + Math.random() * 2200;
     this.preferRange = this.enemyData.preferRange || 380;
-    this.attackDamage = this.enemyData.attackDamage || 18;
+    this.attackDamage = this.enemyData.attackDamage || 11;
     this.busy = false;
     this.attackTimers = [];
     this.heldFx = [];
@@ -152,13 +152,13 @@ export class IceWizard extends Enemy {
 
     if (attack === 'iceFall') {
       this.castIceFall(player, time);
-      this.nextAttackTime = time + 4800 + Math.random() * 800;
+      this.nextAttackTime = time + 9500 + Math.random() * 1800;
     } else if (attack === 'iceSpikes') {
       this.castIceSpikes(player, time);
-      this.nextAttackTime = time + 4200 + Math.random() * 700;
+      this.nextAttackTime = time + 8800 + Math.random() * 1600;
     } else {
       this.castFrostLine(player, time);
-      this.nextAttackTime = time + 5800 + Math.random() * 900;
+      this.nextAttackTime = time + 11000 + Math.random() * 2000;
     }
   }
 

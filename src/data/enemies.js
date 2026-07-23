@@ -248,7 +248,7 @@ export const Enemies = {
     color: 0xaaddff,
     hp: 165,
     speed: 78,
-    contactDamage: 12,
+    contactDamage: 8,
     xp: 7,
     coinMin: 14,
     coinMax: 24,
@@ -256,7 +256,7 @@ export const Enemies = {
     radius: 18,
     isWizard: true,
     isIceWizard: true,
-    attackDamage: 20,
+    attackDamage: 11,
     preferRange: 380,
   },
   yeti: {

@@ -4,32 +4,13 @@
  *
  * Volume slider: 0..1 where 0.5 = current default loudness, 1.0 = 2x that.
  */
-const SETTINGS_KEY = 'blob_survivor_settings_v1';
+import { loadGameSettings, saveGameSettings } from '../data/gameSettings.js';
+
 const HALF_GAIN = 0.38;
 const MAX_GAIN = HALF_GAIN * 2;
 
 function clamp01(v) {
   return Math.max(0, Math.min(1, Number(v) || 0));
-}
-
-function loadSettings() {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { musicVolume: 0.5 };
-    const parsed = JSON.parse(raw);
-    if (typeof parsed.musicVolume === 'number') {
-      return { musicVolume: clamp01(parsed.musicVolume) };
-    }
-    // Migrate old mute toggle
-    if (parsed.musicMuted) return { musicVolume: 0 };
-    return { musicVolume: 0.5 };
-  } catch {
-    return { musicVolume: 0.5 };
-  }
-}
-
-function saveSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
 class MusicManager {
@@ -42,7 +23,7 @@ class MusicManager {
     this.step = 0;
     this.unlocked = false;
     this.voices = [];
-    this.volume = loadSettings().musicVolume;
+    this.volume = loadGameSettings().musicVolume;
   }
 
   /** Slider value 0..1 (0.5 = previous default volume). */
@@ -58,7 +39,7 @@ class MusicManager {
   setVolume(vol) {
     const prev = this.volume;
     this.volume = clamp01(vol);
-    saveSettings({ musicVolume: this.volume });
+    saveGameSettings({ musicVolume: this.volume });
     this.ensureContext();
     if (this.master) {
       this.master.gain.value = this.gainFromVolume();

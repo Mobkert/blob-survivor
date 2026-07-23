@@ -17,7 +17,8 @@ import { FxPool } from '../systems/FxPool.js';
 import { Music } from '../systems/MusicManager.js';
 import { buildSwampPonds, updateSwampPlayerHazards } from '../systems/SwampHazards.js';
 import { getLevel } from '../data/levels.js';
-import { addCoins, addDiamonds, markLevelComplete, getWeaponEnchant } from '../data/meta.js';
+import { addCoins, addDiamonds, markLevelComplete, getWeaponEnchant, progressQuests, progressQuestsAtLeast } from '../data/meta.js';
+import { getKeybinds, bindToKeyCodeName, isMouseBind } from '../data/gameSettings.js';
 import { getPowerup } from '../data/powerups.js';
 import { getWeapon, getTundraUnlockOptions } from '../data/weapons.js';
 import { applyEnchantToWeapon } from '../data/enchants.js';
@@ -237,31 +238,39 @@ export class GameScene extends Phaser.Scene {
 
     setupMultiplayerPlayers(this);
 
-    this.cursors = {
-      W: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-      A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-      Q: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
-    };
+    setupMultiplayerPlayers(this);
+
+    this.setupInputBinds();
 
     this.input.on('pointerdown', (pointer) => {
       if (this.isMultiplayer && this.mpRole === 'guest') return;
       if (this.gameState !== 'playing' && this.gameState !== 'wave_pause') return;
-      if (pointer.leftButtonDown()) {
+      if (this.pointerMatchesBind(pointer, this.keybinds.attack)) {
         this.combatSystem.performPrimaryAttack(pointer);
       }
-      if (pointer.rightButtonDown()) {
+      if (this.pointerMatchesBind(pointer, this.keybinds.shield)) {
         if (this.player.activateShield(this.time.now)) {
           this.combatSystem.onShieldActivate();
         }
       }
     });
 
-    this.input.keyboard.on('keydown-Q', () => {
+    this.input.keyboard.on('keydown', (event) => {
+      if (event.repeat) return;
       if (this.isMultiplayer && this.mpRole === 'guest') return;
       if (this.gameState !== 'playing' && this.gameState !== 'wave_pause') return;
-      this.combatSystem.useAttackPowerup(this.input.activePointer);
+      if (!this.keybinds) return;
+      if (this.eventMatchesBind(event, this.keybinds.special)) {
+        this.combatSystem.useAttackPowerup(this.input.activePointer);
+      }
+      if (this.eventMatchesBind(event, this.keybinds.attack) && !isMouseBind(this.keybinds.attack)) {
+        this.combatSystem.performPrimaryAttack(this.input.activePointer);
+      }
+      if (this.eventMatchesBind(event, this.keybinds.shield) && !isMouseBind(this.keybinds.shield)) {
+        if (this.player.activateShield(this.time.now)) {
+          this.combatSystem.onShieldActivate();
+        }
+      }
     });
 
     this.input.keyboard.on('keydown-ESC', () => {
@@ -274,6 +283,9 @@ export class GameScene extends Phaser.Scene {
     this.events.on('xp-collected', (amount) => {
       const leveled = this.levelSystem.addXp(amount);
       this.events.emit('hud-update');
+      if (!(this.isMultiplayer && this.mpRole === 'guest')) {
+        progressQuests('collect_xp', amount || 0);
+      }
       if (leveled) {
         this.handleLevelUp().catch((err) => console.error('Level up failed:', err));
       }
@@ -288,15 +300,102 @@ export class GameScene extends Phaser.Scene {
 
     this.events.on('wave-started', (wave) => {
       this.events.emit('hud-update', { wave });
+      if (!(this.isMultiplayer && this.mpRole === 'guest')) {
+        progressQuestsAtLeast('reach_wave', wave || 1);
+      }
     });
 
     this.events.on('wave-cleared', (wave) => {
       this.handleWaveCleared(wave).catch((err) => console.error('Wave transition failed:', err));
+      if (!(this.isMultiplayer && this.mpRole === 'guest')) {
+        progressQuests('survive_waves', 1);
+      }
+    });
+
+    this.events.on('boss-defeated', () => {
+      if (!(this.isMultiplayer && this.mpRole === 'guest')) {
+        progressQuests('kill_bosses', 1);
+      }
+    });
+
+    this.events.on('coins-collected', (amount) => {
+      if (!(this.isMultiplayer && this.mpRole === 'guest')) {
+        progressQuests('collect_coins', amount || 0);
+      }
+    });
+
+    this.events.on('level-complete', (data) => {
+      if (!(this.isMultiplayer && this.mpRole === 'guest')) {
+        progressQuests('clear_level', 1);
+        const id = data?.levelId || this.levelId;
+        if (id === 'tundra') progressQuests('clear_tundra', 1);
+        if (id === 'volcanic') progressQuests('clear_volcanic', 1);
+        if (id === 'swamp') progressQuests('clear_swamp', 1);
+      }
     });
 
     this.beginRun().catch((err) => {
       console.error('Failed to start run:', err);
     });
+  }
+
+  setupInputBinds() {
+    const binds = getKeybinds();
+    this.keybinds = binds;
+    const kb = this.input.keyboard;
+    const makeKey = (bind) => {
+      const codeName = bindToKeyCodeName(bind);
+      if (!codeName) return null;
+      const code = Phaser.Input.Keyboard.KeyCodes[codeName];
+      if (code == null) return null;
+      return kb.addKey(code);
+    };
+    this.cursors = {
+      W: makeKey(binds.up),
+      A: makeKey(binds.left),
+      S: makeKey(binds.down),
+      D: makeKey(binds.right),
+      Q: makeKey(binds.special),
+      attack: makeKey(binds.attack),
+      shield: makeKey(binds.shield),
+    };
+  }
+
+  pointerMatchesBind(pointer, bind) {
+    const b = String(bind || '').toUpperCase();
+    if (b === 'LMB') return pointer.leftButtonDown();
+    if (b === 'RMB') return pointer.rightButtonDown();
+    if (b === 'MMB') return pointer.middleButtonDown();
+    return false;
+  }
+
+  eventMatchesBind(event, bind) {
+    const b = String(bind || '').toUpperCase();
+    if (isMouseBind(b)) return false;
+    const code = event.code || '';
+    let fromEvent = null;
+    if (code.startsWith('Key') && code.length === 4) fromEvent = code.slice(3);
+    else if (code.startsWith('Digit') && code.length === 6) fromEvent = code.slice(5);
+    else {
+      const map = {
+        Space: 'SPACE',
+        Escape: 'ESC',
+        ShiftLeft: 'SHIFT',
+        ShiftRight: 'SHIFT',
+        ControlLeft: 'CTRL',
+        ControlRight: 'CTRL',
+        AltLeft: 'ALT',
+        AltRight: 'ALT',
+        Tab: 'TAB',
+        Enter: 'ENTER',
+        ArrowUp: 'UP',
+        ArrowDown: 'DOWN',
+        ArrowLeft: 'LEFT',
+        ArrowRight: 'RIGHT',
+      };
+      fromEvent = map[code] || (event.key && event.key.length === 1 ? event.key.toUpperCase() : null);
+    }
+    return fromEvent === b;
   }
 
   buildArena() {

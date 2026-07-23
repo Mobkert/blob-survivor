@@ -5,12 +5,19 @@ import Phaser from 'phaser';
  * Uses FxPool when available; cleans up via scene timers.
  */
 
-/** Spawn a lingering acid puddle that damages the player on ticks. */
+/** Spawn a lingering acid puddle.
+ *  opts.hurtPlayer — damage the player (default true for swamp frog puddles)
+ *  opts.poisonEnemies — apply poison DoT to enemies standing in it
+ */
 export function spawnAcidPuddle(scene, x, y, opts = {}) {
   const duration = opts.durationMs ?? 2800 + Math.random() * 1400;
   const radius = opts.radius ?? 78;
   const tickDamage = opts.tickDamage ?? 5;
   const tickMs = opts.tickMs ?? 220;
+  const hurtPlayer = opts.hurtPlayer !== false;
+  const poisonEnemies = !!opts.poisonEnemies;
+  const poisonDamage = opts.poisonDamage ?? 4;
+  const poisonMs = opts.poisonMs ?? 2200;
   const fx = scene.fx;
 
   const pool = scene.add.circle(x, y, radius, 0x66cc33, 0.32).setDepth(7);
@@ -34,12 +41,24 @@ export function spawnAcidPuddle(scene, x, y, opts = {}) {
       glow.setAlpha(0.22 + Math.sin(elapsed * 0.014) * 0.08);
 
       const player = scene.player;
-      if (player?.active && scene.gameState === 'playing') {
+      if (hurtPlayer && player?.active && scene.gameState === 'playing') {
         const dist = Phaser.Math.Distance.Between(x, y, player.x, player.y);
         if (dist <= radius + (player.body?.halfWidth || 14)) {
           player.takeDamage(tickDamage, scene.time.now);
           player.applyChill?.(scene.time.now, 400, 0.7);
         }
+      }
+
+      if (poisonEnemies && (scene.gameState === 'playing' || scene.gameState === 'wave_pause')) {
+        const enemies = scene.waveManager?.enemies?.getChildren?.() || [];
+        const now = scene.time.now;
+        enemies.forEach((enemy) => {
+          if (!enemy?.active || enemy.isDying) return;
+          const dist = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+          if (dist <= radius + (enemy.enemyData?.radius || 14)) {
+            enemy.applyPoison?.(now, Math.max(0, (poisonDamage || 4) - 3), Math.max(0, poisonMs - 3000));
+          }
+        });
       }
 
       if (elapsed >= duration) {

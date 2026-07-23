@@ -6,6 +6,7 @@ import { MenuScene } from './scenes/MenuScene.js';
 import { ShopScene } from './scenes/ShopScene.js';
 import { DeckScene } from './scenes/DeckScene.js';
 import { ForgeScene } from './scenes/ForgeScene.js';
+import { QuestBoardScene } from './scenes/QuestBoardScene.js';
 import { DiamondsScene } from './scenes/DiamondsScene.js';
 import { SavesScene } from './scenes/SavesScene.js';
 import { LevelsScene } from './scenes/LevelsScene.js';
@@ -40,6 +41,7 @@ const config = {
     ShopScene,
     DeckScene,
     ForgeScene,
+    QuestBoardScene,
     DiamondsScene,
     SavesScene,
     GameScene,
