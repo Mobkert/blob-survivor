@@ -4,13 +4,13 @@ import { ShopItems } from '../data/shop.js';
 import { Music, bindMusicUnlock } from '../systems/MusicManager.js';
 import { CHANGELOG } from '../data/changelog.js';
 import {
-  DEFAULT_KEYBINDS,
   getKeybinds,
-  setKeybinds,
   resetKeybinds,
   formatBindLabel,
   eventToBind,
   pointerToBind,
+  applyKeybindChange,
+  isMouseBind,
 } from '../data/gameSettings.js';
 import { GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
 
@@ -431,26 +431,6 @@ export class MenuScene extends Phaser.Scene {
     else this.renderGameplaySettings();
   }
 
-  clearSettingsBody() {
-    if (this._volumeMove) {
-      this.input.off('pointermove', this._volumeMove);
-      this._volumeMove = null;
-    }
-    if (this._volumeUp) {
-      this.input.off('pointerup', this._volumeUp);
-      this._volumeUp = null;
-    }
-    if (this._bindKeyHandler) {
-      this.input.keyboard?.off('keydown', this._bindKeyHandler);
-      this._bindKeyHandler = null;
-    }
-    if (this._bindPointerHandler) {
-      this.input.off('pointerdown', this._bindPointerHandler);
-      this._bindPointerHandler = null;
-    }
-    this.settingsBody?.removeAll(true);
-  }
-
   renderAudioSettings() {
     const cx = GAME_WIDTH / 2;
     const label = this.add
@@ -539,7 +519,7 @@ export class MenuScene extends Phaser.Scene {
     ];
 
     const header = this.add
-      .text(cx, 160, 'Keybinds — click a bind, then press a key or mouse button', {
+      .text(cx, 160, 'Click a bind, then press a key (or mouse for Attack/Shield)', {
         fontFamily: 'Arial',
         fontSize: '16px',
         color: '#88aa88',
@@ -606,69 +586,96 @@ export class MenuScene extends Phaser.Scene {
   }
 
   beginRebind(actionId, valText, btn) {
+    this.clearRebindListeners();
     this.waitingBindAction = actionId;
     valText.setText('...');
     btn.setFillStyle(0x3a5a28);
 
-    if (this._bindKeyHandler) {
-      this.input.keyboard?.off('keydown', this._bindKeyHandler);
-    }
-    if (this._bindPointerHandler) {
-      this.input.off('pointerdown', this._bindPointerHandler);
-    }
-
     const finish = (bind) => {
-      if (!bind || !this.waitingBindAction) return;
-      const next = { ...getKeybinds(), [this.waitingBindAction]: bind };
-      // Avoid duplicate keys on keyboard actions (mouse can share with keys).
-      for (const [k, v] of Object.entries(next)) {
-        if (k !== this.waitingBindAction && v === bind && !['attack', 'shield'].includes(k)) {
-          next[k] = DEFAULT_KEYBINDS[k];
-        }
-      }
-      setKeybinds(next);
+      if (!bind || this.waitingBindAction !== actionId) return;
+      // Attack/Shield accept mouse; movement/special need a keyboard key.
+      const wantsMouse = actionId === 'attack' || actionId === 'shield';
+      if (isMouseBind(bind) && !wantsMouse) return;
+
+      applyKeybindChange(actionId, bind);
       this.waitingBindAction = null;
-      if (this._bindKeyHandler) {
-        this.input.keyboard?.off('keydown', this._bindKeyHandler);
-        this._bindKeyHandler = null;
-      }
-      if (this._bindPointerHandler) {
-        this.input.off('pointerdown', this._bindPointerHandler);
-        this._bindPointerHandler = null;
-      }
+      this.clearRebindListeners();
       this.renderSettingsTab();
       this.hintText?.setText(this.buildControlsHint());
     };
 
     this._bindKeyHandler = (event) => {
-      if (!this.waitingBindAction) return;
-      if (event.key === 'Escape') {
+      if (this.waitingBindAction !== actionId) return;
+      if (event.key === 'Escape' || event.code === 'Escape') {
+        event.preventDefault();
         this.waitingBindAction = null;
+        this.clearRebindListeners();
         this.renderSettingsTab();
         return;
       }
       const bind = eventToBind(event);
-      if (bind) {
-        event.preventDefault?.();
-        finish(bind);
-      }
+      if (!bind) return;
+      event.preventDefault();
+      event.stopPropagation();
+      finish(bind);
     };
 
     this._bindPointerHandler = (pointer) => {
-      if (!this.waitingBindAction) return;
-      // Ignore clicks on UI for a frame — only accept after starting wait
+      if (this.waitingBindAction !== actionId) return;
+      // Ignore the click that opened rebind / UI row clicks.
+      if (this.time.now < (this._rebindReadyAt || 0)) return;
       const bind = pointerToBind(pointer);
-      if (bind && (this.waitingBindAction === 'attack' || this.waitingBindAction === 'shield')) {
-        finish(bind);
+      if (!bind) return;
+      if (pointer.event) {
+        pointer.event.preventDefault?.();
+        pointer.event.stopPropagation?.();
       }
+      finish(bind);
     };
 
-    // Delay mouse listen so the click that started rebind doesn't instantly bind
-    this.time.delayedCall(180, () => {
+    this._bindContextHandler = (event) => {
       if (!this.waitingBindAction) return;
-      this.input.keyboard?.on('keydown', this._bindKeyHandler);
+      event.preventDefault();
+    };
+
+    // Window capture is more reliable than Phaser keyboard while menus are open.
+    this._rebindReadyAt = this.time.now + 200;
+    this.time.delayedCall(160, () => {
+      if (this.waitingBindAction !== actionId) return;
+      window.addEventListener('keydown', this._bindKeyHandler, true);
+      window.addEventListener('contextmenu', this._bindContextHandler, true);
       this.input.on('pointerdown', this._bindPointerHandler);
+      this._rebindWindowListening = true;
     });
+  }
+
+  clearRebindListeners() {
+    if (this._bindKeyHandler && this._rebindWindowListening) {
+      window.removeEventListener('keydown', this._bindKeyHandler, true);
+    }
+    if (this._bindContextHandler && this._rebindWindowListening) {
+      window.removeEventListener('contextmenu', this._bindContextHandler, true);
+    }
+    if (this._bindPointerHandler) {
+      this.input.off('pointerdown', this._bindPointerHandler);
+    }
+    this._bindKeyHandler = null;
+    this._bindPointerHandler = null;
+    this._bindContextHandler = null;
+    this._rebindWindowListening = false;
+  }
+
+  clearSettingsBody() {
+    this.clearRebindListeners();
+    if (this._volumeMove) {
+      this.input.off('pointermove', this._volumeMove);
+      this._volumeMove = null;
+    }
+    if (this._volumeUp) {
+      this.input.off('pointerup', this._volumeUp);
+      this._volumeUp = null;
+    }
+    this.settingsBody?.removeAll(true);
   }
 
   closeSettingsPanel() {

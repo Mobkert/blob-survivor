@@ -16,6 +16,19 @@ export const DEFAULT_KEYBINDS = {
 
 const MOUSE_BINDS = new Set(['LMB', 'RMB', 'MMB']);
 
+const DIGIT_CODES = {
+  '0': 'ZERO',
+  '1': 'ONE',
+  '2': 'TWO',
+  '3': 'THREE',
+  '4': 'FOUR',
+  '5': 'FIVE',
+  '6': 'SIX',
+  '7': 'SEVEN',
+  '8': 'EIGHT',
+  '9': 'NINE',
+};
+
 function clamp01(v) {
   return Math.max(0, Math.min(1, Number(v) || 0));
 }
@@ -81,11 +94,15 @@ export function isMouseBind(bind) {
   return MOUSE_BINDS.has(String(bind || '').toUpperCase());
 }
 
-/** Map bind label → Phaser KeyCodes name, or null for mouse. */
+/**
+ * Map bind label → Phaser KeyCodes property name, or null for mouse.
+ * Digits map to ONE/TWO/… which Phaser expects.
+ */
 export function bindToKeyCodeName(bind) {
   const b = String(bind || '').toUpperCase();
   if (MOUSE_BINDS.has(b)) return null;
-  if (b.length === 1 && /[A-Z0-9]/.test(b)) return b;
+  if (DIGIT_CODES[b]) return DIGIT_CODES[b];
+  if (b.length === 1 && /[A-Z]/.test(b)) return b;
   const aliases = {
     SPACE: 'SPACE',
     ESC: 'ESC',
@@ -110,15 +127,25 @@ export function formatBindLabel(bind) {
   if (b === 'LMB') return 'Left Click';
   if (b === 'RMB') return 'Right Click';
   if (b === 'MMB') return 'Middle Click';
+  if (b === 'UP') return '↑';
+  if (b === 'DOWN') return '↓';
+  if (b === 'LEFT') return '←';
+  if (b === 'RIGHT') return '→';
+  if (b === 'SPACE') return 'Space';
   return b;
 }
 
 /** Convert a keyboard event into a bind string. */
 export function eventToBind(event) {
   if (!event) return null;
-  const code = event.code || '';
+  // Phaser sometimes wraps the native event.
+  const e = event.originalEvent || event;
+  const code = e.code || '';
   if (code.startsWith('Key') && code.length === 4) return code.slice(3);
   if (code.startsWith('Digit') && code.length === 6) return code.slice(5);
+  if (code.startsWith('Numpad') && code.length === 7 && /\d/.test(code.slice(6))) {
+    return code.slice(6);
+  }
   const map = {
     Space: 'SPACE',
     Escape: 'ESC',
@@ -130,17 +157,19 @@ export function eventToBind(event) {
     AltRight: 'ALT',
     Tab: 'TAB',
     Enter: 'ENTER',
+    NumpadEnter: 'ENTER',
     ArrowUp: 'UP',
     ArrowDown: 'DOWN',
     ArrowLeft: 'LEFT',
     ArrowRight: 'RIGHT',
   };
   if (map[code]) return map[code];
-  if (event.key && event.key.length === 1) return event.key.toUpperCase();
+  if (e.key === ' ') return 'SPACE';
+  if (e.key && e.key.length === 1) return e.key.toUpperCase();
   return null;
 }
 
-/** Convert pointer button → bind string. */
+/** Convert pointer button → bind string. Prefer event.button on pointerdown. */
 export function pointerToBind(pointer) {
   if (!pointer) return null;
   if (typeof pointer.button === 'number') {
@@ -152,4 +181,21 @@ export function pointerToBind(pointer) {
   if (pointer.rightButtonDown?.()) return 'RMB';
   if (pointer.middleButtonDown?.()) return 'MMB';
   return null;
+}
+
+/** Apply a new bind, swapping if another action already uses it. */
+export function applyKeybindChange(actionId, bind) {
+  const current = getKeybinds();
+  const next = { ...current };
+  const prev = current[actionId];
+  const normalized = String(bind || '').trim().toUpperCase();
+  if (!normalized) return current;
+
+  for (const [k, v] of Object.entries(next)) {
+    if (k !== actionId && v === normalized) {
+      next[k] = prev;
+    }
+  }
+  next[actionId] = normalized;
+  return setKeybinds(next).keybinds;
 }

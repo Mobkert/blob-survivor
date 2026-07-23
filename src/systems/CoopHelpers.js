@@ -21,6 +21,7 @@ import { SwampSnake, isSwampSnakeType } from '../entities/SwampSnake.js';
 import { Mosquito, isMosquitoType } from '../entities/Mosquito.js';
 import { SwampSpider, isSwampSpiderType } from '../entities/SwampSpider.js';
 import { snapshotCoopVfx, serializeBossTelegraph, applyGuestVfxZones, applyGuestEnemyTelegraph } from './CoopNet.js';
+import { isMouseBind } from '../data/gameSettings.js';
 
 export function initMultiplayerFlags(scene, data) {
   scene.mpConfig = data.multiplayer || null;
@@ -190,8 +191,8 @@ export function collectLocalInput(scene) {
   const p = scene.input.activePointer;
   const world = p.positionToCamera(scene.cameras.main);
   const binds = scene.keybinds || {};
-  const attackMouse = !binds.attack || binds.attack === 'LMB' || binds.attack === 'RMB' || binds.attack === 'MMB';
-  const shieldMouse = !binds.shield || binds.shield === 'LMB' || binds.shield === 'RMB' || binds.shield === 'MMB';
+  const attackMouse = !binds.attack || isMouseBind(binds.attack);
+  const shieldMouse = !binds.shield || isMouseBind(binds.shield);
   let fire = false;
   let shield = false;
   if (attackMouse) {
@@ -208,17 +209,22 @@ export function collectLocalInput(scene) {
   } else {
     shield = !!scene.cursors?.shield?.isDown;
   }
+  const up = !!(scene.cursors?.up?.isDown || scene.cursors?.W?.isDown);
+  const down = !!(scene.cursors?.down?.isDown || scene.cursors?.S?.isDown);
+  const left = !!(scene.cursors?.left?.isDown || scene.cursors?.A?.isDown);
+  const right = !!(scene.cursors?.right?.isDown || scene.cursors?.D?.isDown);
+  const specialKey = scene.cursors?.special || scene.cursors?.Q;
   return {
     type: 'input',
-    up: !!scene.cursors?.W?.isDown,
-    down: !!scene.cursors?.S?.isDown,
-    left: !!scene.cursors?.A?.isDown,
-    right: !!scene.cursors?.D?.isDown,
+    up,
+    down,
+    left,
+    right,
     aimX: world.x,
     aimY: world.y,
     fire,
     shield,
-    q: scene.cursors?.Q ? Phaser.Input.Keyboard.JustDown(scene.cursors.Q) : false,
+    q: specialKey ? Phaser.Input.Keyboard.JustDown(specialKey) : false,
   };
 }
 

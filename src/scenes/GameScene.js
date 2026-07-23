@@ -18,7 +18,7 @@ import { Music } from '../systems/MusicManager.js';
 import { buildSwampPonds, updateSwampPlayerHazards } from '../systems/SwampHazards.js';
 import { getLevel } from '../data/levels.js';
 import { addCoins, addDiamonds, markLevelComplete, getWeaponEnchant, progressQuests, progressQuestsAtLeast } from '../data/meta.js';
-import { getKeybinds, bindToKeyCodeName, isMouseBind } from '../data/gameSettings.js';
+import { getKeybinds, bindToKeyCodeName, isMouseBind, eventToBind } from '../data/gameSettings.js';
 import { getPowerup } from '../data/powerups.js';
 import { getWeapon, getTundraUnlockOptions } from '../data/weapons.js';
 import { applyEnchantToWeapon } from '../data/enchants.js';
@@ -245,10 +245,10 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer) => {
       if (this.isMultiplayer && this.mpRole === 'guest') return;
       if (this.gameState !== 'playing' && this.gameState !== 'wave_pause') return;
-      if (this.pointerMatchesBind(pointer, this.keybinds.attack)) {
+      if (isMouseBind(this.keybinds.attack) && this.pointerMatchesBind(pointer, this.keybinds.attack)) {
         this.combatSystem.performPrimaryAttack(pointer);
       }
-      if (this.pointerMatchesBind(pointer, this.keybinds.shield)) {
+      if (isMouseBind(this.keybinds.shield) && this.pointerMatchesBind(pointer, this.keybinds.shield)) {
         if (this.player.activateShield(this.time.now)) {
           this.combatSystem.onShieldActivate();
         }
@@ -343,19 +343,40 @@ export class GameScene extends Phaser.Scene {
     const binds = getKeybinds();
     this.keybinds = binds;
     const kb = this.input.keyboard;
+    if (kb) kb.enabled = true;
+
     const makeKey = (bind) => {
       const codeName = bindToKeyCodeName(bind);
-      if (!codeName) return null;
+      if (!codeName || !kb) return null;
       const code = Phaser.Input.Keyboard.KeyCodes[codeName];
-      if (code == null) return null;
+      if (code == null) {
+        // Fallback: Phaser also accepts letter strings like 'W'
+        try {
+          return kb.addKey(codeName);
+        } catch {
+          return null;
+        }
+      }
       return kb.addKey(code);
     };
+
+    // Keep both directional names and legacy W/A/S/D aliases for Player / coop.
+    const up = makeKey(binds.up);
+    const down = makeKey(binds.down);
+    const left = makeKey(binds.left);
+    const right = makeKey(binds.right);
+    const special = makeKey(binds.special);
     this.cursors = {
-      W: makeKey(binds.up),
-      A: makeKey(binds.left),
-      S: makeKey(binds.down),
-      D: makeKey(binds.right),
-      Q: makeKey(binds.special),
+      up,
+      down,
+      left,
+      right,
+      W: up,
+      A: left,
+      S: down,
+      D: right,
+      Q: special,
+      special,
       attack: makeKey(binds.attack),
       shield: makeKey(binds.shield),
     };
@@ -363,38 +384,16 @@ export class GameScene extends Phaser.Scene {
 
   pointerMatchesBind(pointer, bind) {
     const b = String(bind || '').toUpperCase();
-    if (b === 'LMB') return pointer.leftButtonDown();
-    if (b === 'RMB') return pointer.rightButtonDown();
-    if (b === 'MMB') return pointer.middleButtonDown();
+    if (b === 'LMB') return pointer.button === 0 || pointer.leftButtonDown();
+    if (b === 'RMB') return pointer.button === 2 || pointer.rightButtonDown();
+    if (b === 'MMB') return pointer.button === 1 || pointer.middleButtonDown();
     return false;
   }
 
   eventMatchesBind(event, bind) {
     const b = String(bind || '').toUpperCase();
     if (isMouseBind(b)) return false;
-    const code = event.code || '';
-    let fromEvent = null;
-    if (code.startsWith('Key') && code.length === 4) fromEvent = code.slice(3);
-    else if (code.startsWith('Digit') && code.length === 6) fromEvent = code.slice(5);
-    else {
-      const map = {
-        Space: 'SPACE',
-        Escape: 'ESC',
-        ShiftLeft: 'SHIFT',
-        ShiftRight: 'SHIFT',
-        ControlLeft: 'CTRL',
-        ControlRight: 'CTRL',
-        AltLeft: 'ALT',
-        AltRight: 'ALT',
-        Tab: 'TAB',
-        Enter: 'ENTER',
-        ArrowUp: 'UP',
-        ArrowDown: 'DOWN',
-        ArrowLeft: 'LEFT',
-        ArrowRight: 'RIGHT',
-      };
-      fromEvent = map[code] || (event.key && event.key.length === 1 ? event.key.toUpperCase() : null);
-    }
+    const fromEvent = eventToBind(event);
     return fromEvent === b;
   }
 

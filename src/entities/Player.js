@@ -224,10 +224,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       let vx = 0;
       let vy = 0;
 
-      if (cursors?.W?.isDown) vy -= 1;
-      if (cursors?.S?.isDown) vy += 1;
-      if (cursors?.A?.isDown) vx -= 1;
-      if (cursors?.D?.isDown) vx += 1;
+      if (cursors?.up?.isDown || cursors?.W?.isDown) vy -= 1;
+      if (cursors?.down?.isDown || cursors?.S?.isDown) vy += 1;
+      if (cursors?.left?.isDown || cursors?.A?.isDown) vx -= 1;
+      if (cursors?.right?.isDown || cursors?.D?.isDown) vx += 1;
 
       if (vx !== 0 || vy !== 0) {
         const len = Math.hypot(vx, vy);
