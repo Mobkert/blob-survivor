@@ -15,6 +15,7 @@ export class UIScene extends Phaser.Scene {
 
   create() {
     this.gameScene = this.scene.get('GameScene');
+    this.coinsAtRunStart = loadMeta().coins;
     this.runCoins = 0;
     this.pendingContinue = null;
     this.continueSelected = new Set();
@@ -140,8 +141,9 @@ export class UIScene extends Phaser.Scene {
       const levelId = this.gameScene?.levelId || 'plains';
       this.scene.stop('GameScene');
       this.scene.stop('UIScene');
-      this.scene.launch('UIScene');
+      // Start GameScene first so UIScene binds to the new instance.
       this.scene.start('GameScene', { levelId });
+      this.scene.launch('UIScene');
     });
     this.continueBtn.on('pointerover', () => {
       if (this.continueBtn.visible) this.continueBtn.setFillStyle(0x8a3820);
@@ -172,7 +174,15 @@ export class UIScene extends Phaser.Scene {
     ]);
     this.menuBtnLabel = menuText;
 
-    this.gameScene.events.on('hud-update', () => this.refreshHud());
+    this.gameScene.events.on('hud-update', (data) => {
+      // Re-bind to the live GameScene in case Play Again / continue restarted it.
+      this.gameScene = this.scene.get('GameScene') || this.gameScene;
+      if (data?.reset) {
+        this.coinsAtRunStart = loadMeta().coins;
+        this.runCoins = 0;
+      }
+      this.refreshHud();
+    });
     this.gameScene.events.on('player-damaged', (amount) => this.onPlayerDamaged(amount));
     this.gameScene.events.on('clear-damage-glow', () => {
       this.damageGlowIntensity = 0;
@@ -181,7 +191,8 @@ export class UIScene extends Phaser.Scene {
     this.gameScene.events.on('game-over', (data) => this.showGameOver(data));
     this.gameScene.events.on('level-complete', (data) => this.showVictory(data));
     this.gameScene.events.on('coins-collected', (amount) => {
-      this.runCoins += amount;
+      // Keep a running sum as backup; display prefers the meta delta.
+      this.runCoins += Math.max(0, Math.floor(Number(amount) || 0));
       this.refreshHud();
     });
     this.gameScene.events.on('boss-spawned', (boss) => this.showBossBar(boss));
@@ -648,7 +659,11 @@ export class UIScene extends Phaser.Scene {
       this.attackText.setText(state.fortune ? 'Fortune ready' : 'Q: —');
     }
 
-    this.coinText.setText(`Coins: ${loadMeta().coins} (+${this.runCoins})`);
+    const totalCoins = loadMeta().coins;
+    const gained = Math.max(0, totalCoins - (this.coinsAtRunStart || 0));
+    // Prefer banked delta so the (+N) always matches real gold gained this run.
+    this.runCoins = gained;
+    this.coinText.setText(`Coins: ${totalCoins} (+${gained})`);
 
     const lives = gs.lives ?? 3;
     this.lifeIcons.forEach((icon, i) => {

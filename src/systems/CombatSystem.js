@@ -1315,6 +1315,10 @@ export class CombatSystem {
   }
 
   collectXp(orb) {
+    if (!orb?.active || orb._collected) return;
+    orb._collected = true;
+    orb.disableBody?.(true, true);
+
     if (this.playerState.scavenger) {
       this.player.heal(this.playerState.scavengerHeal || 2);
     }
@@ -1360,7 +1364,12 @@ export class CombatSystem {
   }
 
   collectCoin(orb) {
-    const value = this.scene.isMultiplayer ? Math.floor(orb.value / 2) : orb.value;
+    if (!orb?.active || orb._collected) return;
+    orb._collected = true;
+    orb.disableBody?.(true, true);
+
+    const raw = Math.max(0, Math.floor(Number(orb.value) || 0));
+    const value = this.scene.isMultiplayer ? Math.floor(raw / 2) : raw;
     if (value > 0) {
       if (this.scene.isMultiplayer) grantCoopCoins(this.scene, value);
       else {

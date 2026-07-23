@@ -117,7 +117,10 @@ export class WaveManager {
       return this.player;
     };
     this.enemies.getChildren().forEach((enemy) => {
-      if (enemy.active) enemy.update(time, targetFor(enemy));
+      if (enemy.active) {
+        enemy.update(time, targetFor(enemy));
+        enemy.clampToArena?.();
+      }
     });
   }
 

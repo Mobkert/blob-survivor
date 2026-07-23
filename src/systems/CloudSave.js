@@ -118,6 +118,43 @@ export function validatePassword(password) {
   return null;
 }
 
+const PASSWORD_STORE_KEY = 'blob_survivor_cloud_passwords_v1';
+
+function loadPasswordMap() {
+  try {
+    const raw = localStorage.getItem(PASSWORD_STORE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePasswordMap(map) {
+  localStorage.setItem(PASSWORD_STORE_KEY, JSON.stringify(map));
+}
+
+/** Remember the cloud password for a local save slot. */
+export function rememberSlotPassword(slotIndex, password) {
+  const pw = normalizePassword(password);
+  if (validatePassword(pw)) return;
+  const map = loadPasswordMap();
+  map[String(slotIndex)] = pw;
+  savePasswordMap(map);
+}
+
+export function getRememberedSlotPassword(slotIndex) {
+  const map = loadPasswordMap();
+  return normalizePassword(map[String(slotIndex)] || '');
+}
+
+export function clearRememberedSlotPassword(slotIndex) {
+  const map = loadPasswordMap();
+  delete map[String(slotIndex)];
+  savePasswordMap(map);
+}
+
 /** Upload / overwrite a cloud save for this password. */
 export async function cloudSaveSlot(slotData, password) {
   const pw = normalizePassword(password);

@@ -122,7 +122,14 @@ function rewardFor(difficulty, type = '') {
     return { rewardType: 'forge_roll', rewardAmount: 1, label: '1 Free Enchant Roll' };
   }
 
-  // Hard level clears (e.g. Murk Swamp ×2) — premium payouts for the time sink.
+  // Hard Conqueror (clear any level) — free enchant roll instead of big gold.
+  if (type === 'clear_level') {
+    if (roll < 0.55) return { rewardType: 'forge_roll', rewardAmount: 1, label: '1 Free Enchant Roll' };
+    if (roll < 0.8) return { rewardType: 'forge_roll', rewardAmount: 2, label: '2 Free Enchant Rolls' };
+    return { rewardType: 'lucky_forge_roll', rewardAmount: 1, label: '1 Free Lucky Roll' };
+  }
+
+  // Hard specific level clears (e.g. Murk Swamp ×2) — premium payouts for the time sink.
   if (levelClear) {
     if (roll < 0.25) return { rewardType: 'gold', rewardAmount: 15000, label: '15000 Gold' };
     if (roll < 0.45) return { rewardType: 'diamonds', rewardAmount: 80, label: '80 Diamonds' };
@@ -146,6 +153,19 @@ export function boostHardClearReward(quest) {
   if (!quest || quest.empty || quest.difficulty !== 'hard' || !isLevelClearType(quest.type)) {
     return quest;
   }
+
+  // Conqueror should never show big gold — swap to a free enchant roll.
+  if (quest.type === 'clear_level' && quest.rewardType === 'gold') {
+    return {
+      ...quest,
+      rewardType: 'forge_roll',
+      rewardAmount: 1,
+      label: '1 Free Enchant Roll',
+    };
+  }
+
+  if (quest.type === 'clear_level') return quest;
+
   const weakDiamond =
     quest.rewardType === 'diamonds' && (quest.rewardAmount || 0) < 80;
   const weakGold = quest.rewardType === 'gold' && (quest.rewardAmount || 0) < 15000;

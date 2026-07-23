@@ -11,7 +11,15 @@ import {
   writeMetaToSlot,
   SAVE_SLOT_COUNT,
 } from '../data/meta.js';
-import { cloudSaveSlot, cloudLoadSlot, normalizePassword, validatePassword } from '../systems/CloudSave.js';
+import {
+  cloudSaveSlot,
+  cloudLoadSlot,
+  normalizePassword,
+  validatePassword,
+  rememberSlotPassword,
+  getRememberedSlotPassword,
+  clearRememberedSlotPassword,
+} from '../systems/CloudSave.js';
 import { Music } from '../systems/MusicManager.js';
 
 const INPUT_STYLE =
@@ -44,7 +52,7 @@ export class SavesScene extends Phaser.Scene {
       .text(
         GAME_WIDTH / 2,
         72,
-        'Load a slot to play it. Set a password to sync that slot to other browsers.',
+        'Load a slot to play it. Cloud Save remembers the password — Save Here also updates cloud.',
         {
           fontFamily: 'Arial',
           fontSize: '14px',
@@ -98,6 +106,14 @@ export class SavesScene extends Phaser.Scene {
   }
 
   refreshSlots() {
+    // Keep whatever is currently typed before DOM inputs are destroyed.
+    (this.slotPasswordInputs || []).forEach((el, i) => {
+      const typed = normalizePassword(el?.node?.value || '');
+      if (typed && !validatePassword(typed)) {
+        rememberSlotPassword(i, typed);
+      }
+    });
+
     this.slotRows.forEach((row) => row.destroy(true));
     this.slotRows = [];
     this.slotPasswordInputs.forEach((el) => {
@@ -186,6 +202,8 @@ export class SavesScene extends Phaser.Scene {
       input.node.type = 'password';
       input.node.placeholder = 'Password';
       input.node.autocomplete = 'off';
+      const remembered = getRememberedSlotPassword(slot.index);
+      if (remembered) input.node.value = remembered;
     }
     this.slotPasswordInputs.push(input);
 
@@ -243,7 +261,34 @@ export class SavesScene extends Phaser.Scene {
 
   onSaveHere(index) {
     const active = getActiveSlotIndex();
+    // Capture password from the row input or remembered store before refresh.
+    const typed = normalizePassword(this.slotPasswordInputs?.[index]?.node?.value || '');
+    const password =
+      (typed && !validatePassword(typed) ? typed : '') ||
+      getRememberedSlotPassword(index) ||
+      getRememberedSlotPassword(active);
+
     saveActiveToSlot(index);
+
+    if (password && !validatePassword(password)) {
+      rememberSlotPassword(index, password);
+      const meta = getSlotMeta(index);
+      if (meta) {
+        this.setMessage(`Slot ${index + 1} saved — updating cloud…`);
+        cloudSaveSlot(meta, password)
+          .then(() => {
+            this.setMessage(`Slot ${index + 1} saved locally and to cloud.`);
+          })
+          .catch((err) => {
+            this.setMessage(
+              `Slot ${index + 1} saved locally. Cloud update failed: ${err?.message || 'error'}`,
+            );
+          });
+        this.refreshSlots();
+        return;
+      }
+    }
+
     this.setMessage(
       index === active
         ? `Slot ${index + 1} updated.`
@@ -254,6 +299,7 @@ export class SavesScene extends Phaser.Scene {
 
   onClear(index) {
     clearSaveSlot(index);
+    clearRememberedSlotPassword(index);
     this.setMessage(`Slot ${index + 1} cleared.`);
     this.refreshSlots();
   }
@@ -271,7 +317,9 @@ export class SavesScene extends Phaser.Scene {
     }
     this.setMessage('Uploading cloud save…');
     await cloudSaveSlot(meta, password);
+    rememberSlotPassword(index, password);
     this.setMessage(`Slot ${index + 1} saved to cloud. Use that password on any browser.`);
+    this.refreshSlots();
   }
 
   async onCloudLoad() {
@@ -289,6 +337,7 @@ export class SavesScene extends Phaser.Scene {
     this.setMessage('Loading cloud save…');
     const meta = await cloudLoadSlot(password);
     writeMetaToSlot(empty, meta);
+    rememberSlotPassword(empty, password);
     this.setMessage(`Cloud save loaded into Slot ${empty + 1}.`);
     if (this.cloudLoadInput?.node) this.cloudLoadInput.node.value = '';
     this.refreshSlots();

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getEnemyData, getScaledEnemyHp, getScaledBossHp } from '../data/enemies.js';
+import { ARENA_SIZE } from '../data/constants.js';
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   /**
@@ -30,6 +31,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setCircle(data.radius);
     this.setDepth(5);
     this.body.setSize(data.radius * 2, data.radius * 2);
+    this.setCollideWorldBounds(true);
 
     this.poisonEndTime = 0;
     this.poisonTickTime = 0;
@@ -75,12 +77,34 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.setVelocity(0, 0);
       this.setTint(0xd4b483);
       this.updateHpBar();
+      this.clampToArena();
       return;
     }
     const speed = this.chaseSpeed * this.slowMultiplier;
     this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
 
     this.updateHpBar();
+    this.clampToArena();
+  }
+
+  /** Keep this enemy inside the arena so kiters cannot walk off the map. */
+  clampToArena() {
+    if (!this.active || this.isDying) return;
+    const r = this.enemyData?.radius || 16;
+    const half = ARENA_SIZE / 2 - r;
+    const nx = Phaser.Math.Clamp(this.x, -half, half);
+    const ny = Phaser.Math.Clamp(this.y, -half, half);
+    if (nx === this.x && ny === this.y) return;
+
+    this.setPosition(nx, ny);
+    if (this.body) {
+      if ((nx <= -half && this.body.velocity.x < 0) || (nx >= half && this.body.velocity.x > 0)) {
+        this.body.velocity.x = 0;
+      }
+      if ((ny <= -half && this.body.velocity.y < 0) || (ny >= half && this.body.velocity.y > 0)) {
+        this.body.velocity.y = 0;
+      }
+    }
   }
 
   updateHpBar() {
